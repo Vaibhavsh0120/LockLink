@@ -1,8 +1,8 @@
 # LockLink
 
-LockLink is a local network smart door **LED prototype**. The Flutter app sends
-`POST /unlock` to an ESP32-S3 N16R8, which lights the board's RGB LED for two seconds.
-No relay or real door lock is supported in this milestone.
+LockLink is a local network door controller for ESP32-S3 N16R8. The default
+configuration remains an RGB LED prototype. An explicitly enabled relay mode
+can pulse a power-to-unlock 12 V lock for two seconds.
 
 ## Folders
 
@@ -10,13 +10,12 @@ No relay or real door lock is supported in this milestone.
 - `LockLink_IoT/` — PlatformIO Arduino firmware for ESP32-S3-DevKitC-1.
 - `LockLink_Docs/` — wiring and release notes.
 
-## Start with the LED
+## LED test
 
 1. This configuration uses the board's addressable RGB LED on GPIO 48. The
-   ESP32-S3-DevKitC-1 v1.1 uses GPIO 38 instead; set `config::outputPin` in
-   `LockLink_IoT/include/config.h` to match your board. For an external LED,
-   select `OutputDriver::digital`, set GPIO 2, and wire the LED through a
-   current-limiting resistor to GND.
+   ESP32-S3-DevKitC-1 v1.1 uses GPIO 38 instead; set
+   `config::indicatorPin` in `LockLink_IoT/include/config.h` to match your
+   board. Your tested board uses GPIO 48.
 2. Copy `LockLink_IoT/include/private_config.example.h` to
    `LockLink_IoT/include/private_config.h` and enter the Wi-Fi credentials.
    The private file is gitignored.
@@ -31,6 +30,19 @@ No relay or real door lock is supported in this milestone.
 
 The app polls status every ten seconds and times out requests after four seconds.
 It disables Unlock while the device is offline or a pulse is active.
+
+## Real lock
+
+Read [relay setup](LockLink_Docs/RELAY_SETUP.md) before connecting the lock.
+Relay mode requires an explicit firmware switch and a private 64-character
+pairing key. Enter the same key once in the app's device settings. Unlock then
+requests a fresh one-time challenge automatically; there is no code to type
+for each use. On Android/iOS the key is stored in platform secure storage.
+The web app keeps it only until the tab closes.
+
+The status screen reports whether the ESP32 is online and whether its unlock
+output is active. It cannot confirm that the door physically opened; there is
+no door-position sensor.
 
 ## Mobile releases
 
@@ -54,7 +66,7 @@ web requests are subject to CORS and local network permissions.
 **Do not use Vercel as a remote unlock route yet.** Vercel can host the Flutter
 static files, but it cannot directly reach a private ESP32 on your Wi-Fi. A
 public HTTPS page calling a private HTTP address also faces browser mixed-content
-and local-network permission restrictions. More importantly, this LED firmware
-has no authentication and must never be connected to a relay or exposed to the
-public internet. Remote unlock needs a separate authenticated design and a
-security review before physical actuation.
+and local-network permission restrictions. Relay mode accepts signed local
+commands and disables browser access unless one exact local origin is
+configured, but it is not a remote-access service. Remote unlock needs a
+separate design and security review.

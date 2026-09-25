@@ -47,6 +47,52 @@ void main() {
     api.close();
   });
 
+  test('signs a relay unlock with the one-time challenge', () async {
+    const nonce = '00112233445566778899aabbccddeeff';
+    const key =
+        '000102030405060708090a0b0c0d0e0f'
+        '101112131415161718191a1b1c1d1e1f';
+    final client = MockClient((request) async {
+      if (request.url.path == '/status') {
+        return http.Response(
+          jsonEncode({
+            'online': true,
+            'state': 'locked',
+            'mode': 'relay',
+            'armed': true,
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/challenge') {
+        return http.Response(jsonEncode({'nonce': nonce}), 200);
+      }
+      if (request.url.path == '/unlock') {
+        expect(request.headers['X-LockLink-Nonce'], nonce);
+        expect(
+          request.headers['X-LockLink-Signature'],
+          '341a767596290df094f966447190fec7ad24056bae49ea7dd64767a5e3774b75',
+        );
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'state': 'unlocking',
+            'duration_ms': 2000,
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    final api = LockLinkApiService('http://192.168.1.50', client: client);
+    expect((await api.getStatus()).mode, 'relay');
+    expect(
+      await api.unlockDoor(relayMode: true, unlockKeyHex: key),
+      const Duration(seconds: 2),
+    );
+    api.close();
+  });
+
   test('rejects malformed unlock success', () async {
     final api = LockLinkApiService(
       'http://192.168.1.50',

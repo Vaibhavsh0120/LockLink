@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceSettings {
@@ -5,11 +7,30 @@ class DeviceSettings {
     : _preferences = preferences ?? SharedPreferencesAsync();
 
   static const _addressKey = 'device_address';
+  static const _secureStorage = FlutterSecureStorage();
   final SharedPreferencesAsync _preferences;
+  final Map<String, String> _webSessionKeys = {};
 
   Future<String?> loadAddress() => _preferences.getString(_addressKey);
   Future<void> saveAddress(String address) =>
       _preferences.setString(_addressKey, address);
+
+  Future<String?> loadUnlockKey(String address) async {
+    if (kIsWeb) return _webSessionKeys[address];
+    return _secureStorage.read(key: 'unlock_key:$address');
+  }
+
+  Future<void> saveUnlockKey(String address, String key) async {
+    final normalized = key.trim().toLowerCase();
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(normalized)) {
+      throw const FormatException('Use a 64-character hex pairing key');
+    }
+    if (kIsWeb) {
+      _webSessionKeys[address] = normalized;
+    } else {
+      await _secureStorage.write(key: 'unlock_key:$address', value: normalized);
+    }
+  }
 
   static String? normalizeAddress(String raw) {
     final value = raw.trim();

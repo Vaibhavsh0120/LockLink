@@ -4,19 +4,21 @@ class DoorControlCard extends StatelessWidget {
   const DoorControlCard({
     super.key,
     required this.online,
+    required this.ready,
     required this.active,
-    required this.configured,
     required this.stateLabel,
     required this.statusText,
+    required this.helperText,
     required this.onUnlock,
     this.compact = false,
   });
 
   final bool online;
+  final bool ready;
   final bool active;
-  final bool configured;
   final String stateLabel;
   final String statusText;
+  final String? helperText;
   final VoidCallback? onUnlock;
   final bool compact;
 
@@ -24,18 +26,13 @@ class DoorControlCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final ringColor = !online
+    final ringColor = !online || !ready
         ? colors.outline
         : active
         ? const Color(0xFFD8AF66)
         : const Color(0xFF80B98B);
     final size = compact ? 208.0 : 236.0;
     final innerSize = size - 22;
-    final helperText = !configured
-        ? 'Add your device address to begin'
-        : online
-        ? null
-        : 'Check Wi-Fi and device';
 
     return Card(
       child: Padding(
@@ -99,7 +96,7 @@ class DoorControlCard extends StatelessWidget {
                     width: innerSize,
                     height: innerSize,
                     child: FilledButton(
-                      onPressed: online && !active ? onUnlock : null,
+                      onPressed: online && ready && !active ? onUnlock : null,
                       style: FilledButton.styleFrom(
                         shape: const CircleBorder(),
                         padding: EdgeInsets.zero,
@@ -125,7 +122,7 @@ class DoorControlCard extends StatelessWidget {
                           Text(
                             active ? 'UNLOCKING' : 'UNLOCK',
                             style: theme.textTheme.labelLarge?.copyWith(
-                              color: online && !active
+                              color: online && ready && !active
                                   ? colors.onPrimary
                                   : colors.onSurfaceVariant,
                               fontWeight: FontWeight.w800,
@@ -151,7 +148,7 @@ class DoorControlCard extends StatelessWidget {
             if (helperText != null) ...[
               const SizedBox(height: 6),
               Text(
-                helperText,
+                helperText!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,

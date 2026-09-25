@@ -22,6 +22,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _checking = false;
   bool _online = false;
   bool _unlocking = false;
+  bool _relayMode = false;
+  bool _armed = true;
+  bool _pairingError = false;
+  String? _unlockKey;
   String _deviceState = 'locked';
 
   @override
@@ -34,6 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final address = await _settings.loadAddress();
     if (!mounted) return;
     _connect(address);
+    if (address != null) {
+      _unlockKey = await _settings.loadUnlockKey(address);
+      if (!mounted) return;
+    }
     setState(() => _loading = false);
     if (address != null) await _refresh();
   }
@@ -43,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _address = address;
     _api = address == null ? null : LockLinkApiService(address);
     _online = false;
+    _relayMode = false;
+    _armed = true;
+    _pairingError = false;
+    _unlockKey = null;
     _deviceState = 'locked';
     _pollTimer?.cancel();
     if (address != null) {
@@ -63,6 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _online = status.online;
         _deviceState = status.state;
+        _relayMode = status.mode == 'relay';
+        _armed = status.armed;
       });
     } catch (_) {
       if (!mounted || api != _api) return;
@@ -79,12 +93,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() => _unlocking = true);
     try {
-      final duration = await api.unlockDoor();
+      final duration = await api.unlockDoor(
+        relayMode: _relayMode,
+        unlockKeyHex: _unlockKey,
+      );
       if (!mounted || api != _api) return;
+      setState(() => _pairingError = false);
       await Future<void>.delayed(duration);
     } on DeviceException catch (error) {
-      if (mounted && api == _api && error.statusCode != 409) {
-        setState(() => _online = false);
+      if (mounted && api == _api) {
+        if (error.statusCode == 401) {
+          setState(() => _pairingError = true);
+        } else if (error.statusCode == 503) {
+          setState(() => _armed = false);
+        } else if (error.statusCode != 409) {
+          setState(() => _online = false);
+        }
       }
     } catch (_) {
       if (mounted && api == _api) {
@@ -102,12 +126,29 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = TextEditingController(
       text: _address ?? 'http://192.168.1.',
     );
+    final keyController = TextEditingController();
     String? error;
-    final result = await showDialog<String>(
+    String? keyError;
+    void submit(BuildContext dialogContext, StateSetter update) {
+      final address = DeviceSettings.normalizeAddress(controller.text);
+      final key = keyController.text.trim();
+      update(() {
+        error = address == null ? 'Use a local http:// address' : null;
+        keyError = key.isNotEmpty && !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(key)
+            ? 'Use a 64-character hex key'
+            : null;
+      });
+      if (address != null && keyError == null) {
+        Navigator.pop(dialogContext, (address: address, key: key));
+      }
+    }
+
+    final result = await showDialog<({String address, String key})>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
           title: const Text('Connect your device'),
+          scrollable: true,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,16 +167,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   errorText: error,
                   border: const OutlineInputBorder(),
                 ),
-                onSubmitted: (_) {
-                  final value = DeviceSettings.normalizeAddress(
-                    controller.text,
-                  );
-                  if (value == null) {
-                    update(() => error = 'Use a local http:// address');
-                  } else {
-                    Navigator.pop(dialogContext, value);
-                  }
-                },
+                onSubmitted: (_) => submit(dialogContext, update),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: keyController,
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: 'Pairing key for relay',
+                  hintText: 'Leave blank to keep saved key',
+                  errorText: keyError,
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ],
           ),
@@ -145,14 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
-                final value = DeviceSettings.normalizeAddress(controller.text);
-                if (value == null) {
-                  update(() => error = 'Use a local http:// address');
-                } else {
-                  Navigator.pop(dialogContext, value);
-                }
-              },
+              onPressed: () => submit(dialogContext, update),
               child: const Text('Save address'),
             ),
           ],
@@ -160,10 +198,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     controller.dispose();
+    keyController.dispose();
     if (result == null || !mounted) return;
-    await _settings.saveAddress(result);
+    await _settings.saveAddress(result.address);
+    if (result.key.isNotEmpty) {
+      await _settings.saveUnlockKey(result.address, result.key);
+    }
+    final savedKey = await _settings.loadUnlockKey(result.address);
     if (!mounted) return;
-    setState(() => _connect(result));
+    setState(() {
+      _connect(result.address);
+      _unlockKey = savedKey;
+    });
     await _refresh();
   }
 
@@ -179,18 +225,39 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final active = _online && (_unlocking || _deviceState == 'unlocking');
+    final ready =
+        !_relayMode || (_armed && _unlockKey != null && !_pairingError);
     final stateLabel = _address == null
         ? 'Not connected'
         : !_online
         ? 'Offline'
+        : _relayMode && !_armed
+        ? 'Not armed'
+        : _relayMode && !ready
+        ? 'Pair device'
         : active
         ? 'Unlocking…'
+        : _relayMode
+        ? 'Ready'
         : 'Locked';
     final statusText = _address == null
         ? 'Not connected'
-        : _online
-        ? 'Online'
-        : 'Offline';
+        : !_online
+        ? 'Offline'
+        : !ready
+        ? 'Setup needed'
+        : 'Online';
+    final helperText = _address == null
+        ? 'Add device address'
+        : !_online
+        ? 'Check Wi-Fi and device'
+        : _relayMode && !_armed
+        ? 'Set key in ESP32'
+        : _pairingError
+        ? 'Pairing key rejected'
+        : _relayMode && _unlockKey == null
+        ? 'Add key in settings'
+        : null;
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -270,11 +337,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 24),
                             DoorControlCard(
                               online: _online,
+                              ready: ready,
                               active: active,
-                              configured: _address != null,
                               stateLabel: stateLabel,
                               statusText: statusText,
-                              onUnlock: _unlock,
+                              helperText: helperText,
+                              onUnlock: ready ? _unlock : null,
                               compact: compact,
                             ),
                             if (_loading) ...[
@@ -292,7 +360,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         Center(
                           child: Text(
-                            'Local only  ·  LED prototype',
+                            _relayMode
+                                ? 'Local only  ·  Lock control'
+                                : 'Local only  ·  LED prototype',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colors.onSurfaceVariant,
                             ),
