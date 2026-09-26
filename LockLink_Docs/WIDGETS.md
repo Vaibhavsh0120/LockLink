@@ -34,9 +34,44 @@ The Runner and LockLinkWidgets targets must both be signed with a provisioning
 profile granting `group.com.locklink.locklink`. Register/enable this App Group
 for both identifiers with the signing account. The extension is embedded at
 `Runner.app/PlugIns/LockLinkWidgets.appex`. Do not remove it when signing the IPA.
-If a signing tool changes bundle or App Group identifiers, update the shared
-group constant and entitlements consistently before building. A missing or
-rewritten group cannot share the widget's configuration and keychain item.
+For direct sideloads, keep the widget extension when the installer asks.
+AltStore appends the signing team's identifier to App Groups. Both targets now
+resolve that installed group from `ALTAppGroups` metadata or the bundled
+provisioning profile, then use it consistently for the container, preferences,
+and Keychain. The original group is preferred when iOS authorizes it; otherwise
+exactly one authorized group in the `group.com.locklink.locklink.` namespace is
+required. Unrelated or ambiguous groups are rejected. Profile/Info.plist data
+only supplies candidate names: iOS container and Keychain access remain enforced.
+This also covers signers that retain a profile but omit AltStore metadata.
+Arbitrary group renaming outside that namespace still requires updating both
+targets and the shared original group before building.
+
+Sources: [AltStore group rewriting](https://github.com/altstoreio/AltStore/blob/develop/AltStore/Operations/FetchProvisioningProfilesOperation.swift),
+[per-bundle metadata](https://github.com/altstoreio/AltStore/blob/develop/AltStore/Operations/ResignAppOperation.swift).
+
+### If setup fails
+
+Setup now preserves the native failure instead of always recommending reopening:
+
+- **Missing widget:** the installed app does not contain `LockLinkWidgets.appex`.
+  Install the full app with the signed extension included.
+- **Cannot share widget settings:** iOS could not open the shared App Group, or
+  Keychain returned `errSecMissingEntitlement`. Re-sign/install both targets with
+  profiles that grant the same App Group; retrying or reopening cannot grant it.
+- **Unlock your iPhone:** protected Keychain storage is temporarily unavailable.
+  Unlock the phone and retry setup.
+- **Could not save widget settings:** another storage/synchronization failure.
+  Retry setup; update the app if it persists.
+- **Widget support is missing:** the native Flutter bridge is unavailable in this
+  app build. Install a complete current build.
+
+The App Group itself also authorizes the shared Keychain access group on iOS;
+an additional team-prefixed Keychain group is not needed for this implementation.
+See [Apple's shared Keychain documentation](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps).
+The app checks the embedded extension and shared storage before reporting that
+settings were updated. These checks do not prove that iOS registered the extension
+in its gallery; installation and both targets' signing still need verification.
+Failure cleanup remains best effort when iOS denies access to shared storage.
 
 **LiveContainer:** guest app extensions are not registered as native iOS widgets.
 LockLink can run inside LiveContainer, but its Home/Lock Screen widget cannot be
@@ -69,6 +104,10 @@ Windows can build the Android APK and run Flutter/Kotlin checks. An iOS build
 requires Xcode on macOS; signed entitlement access, iOS 27 widget presentation,
 device authentication and real gate operation need physical-device testing.
 The release workflow checks that the widget extension exists in the packaged app.
+`RunnerTests` covers original/resigned group selection, unauthorized/ambiguous
+groups, and provisioning-profile fallback. These native tests require Xcode and
+have not been run on Windows. The Flutter setup regression test covers distinct
+signing and locked-storage guidance, retry, and successful synchronization.
 The compact Android layouts were also inflated as real RemoteViews in an Android
 13 emulator, compared with the previous card, and inspected in light mode and
 dark mode with 130% text scaling. Launcher placement and physical gate operation

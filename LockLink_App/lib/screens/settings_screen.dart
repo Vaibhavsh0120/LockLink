@@ -33,20 +33,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _widgetMessage;
 
   Future<void> _updateWidgets() async {
-    setState(() => _updatingWidgets = true);
+    setState(() {
+      _updatingWidgets = true;
+      _widgetMessage = null;
+    });
     try {
       await WidgetBridge.synchronize(widget.settings);
       final pinned = await WidgetBridge.requestPin();
       if (!mounted) return;
       setState(
-        () => _widgetMessage = pinned ? 'Confirm on your Home Screen.' : 'Hold your Home Screen, then choose Widgets → LockLink. iPhone also supports Lock Screen and Today View.',
+        () => _widgetMessage = pinned ? 'Confirm on your Home Screen.' : 'Widget settings updated. Hold your Home Screen, then choose Widgets → LockLink. iPhone also supports Lock Screen and Today View.',
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(
-        () => _widgetMessage =
-            'Could not update widgets. Try again after reopening the app.',
-      );
+      setState(() => _widgetMessage = WidgetBridge.setupFailureMessage(error));
     } finally {
       if (mounted) setState(() => _updatingWidgets = false);
     }
@@ -106,9 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       widget.haptics.success();
       setState(() => _saving = false);
       _message(
-        widgetsUpdated
-            ? 'Device settings saved.'
-            : 'Device saved. Tap Set up widgets to finish.',
+        widgetsUpdated ? 'Device settings saved.' : 'Device saved. Widgets were not updated. Open widget setup for details.',
       );
       Navigator.of(context).pop(true);
     } catch (_) {

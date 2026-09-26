@@ -85,9 +85,19 @@ void main() {
       await tester.pump();
       final button = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(button.onPressed != null, state.$1 && state.$2 && !state.$3);
+      final beforeTap = commands;
+      await tester.tap(
+        find
+            .byIcon(
+              state.$3 ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+            )
+            .first,
+        warnIfMissed: false,
+      );
+      expect(commands - beforeTap, state.$1 && state.$2 && !state.$3 ? 1 : 0);
       if (button.onPressed != null) await tester.tap(find.byType(FilledButton));
       expect(tester.takeException(), isNull);
     }
-    expect(commands, 1);
+    expect(commands, 2);
   });
 }

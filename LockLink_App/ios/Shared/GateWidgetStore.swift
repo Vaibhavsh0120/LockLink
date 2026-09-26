@@ -25,13 +25,83 @@ struct GateWidgetConfiguration: Codable, Equatable {
 
 enum GateWidgetError: Error {
     case message(String)
+    case appGroupUnavailable
+    case extensionUnavailable
+    case keychain(OSStatus)
+
+    var code: String {
+        switch self {
+        case .message: return "widget_settings"
+        case .appGroupUnavailable: return "widget_app_group"
+        case .extensionUnavailable: return "widget_extension_missing"
+        case .keychain(let status):
+            switch status {
+            case errSecMissingEntitlement: return "widget_keychain_access"
+            case errSecInteractionNotAllowed: return "widget_locked"
+            default: return "widget_storage"
+            }
+        }
+    }
+
     var text: String {
-        switch self { case .message(let text): return text }
+        switch self {
+        case .message(let text): return text
+        case .appGroupUnavailable:
+            return "This installation cannot access the shared widget App Group."
+        case .extensionUnavailable:
+            return "The LockLink widget extension is missing from this installation."
+        case .keychain(let status):
+            switch status {
+            case errSecMissingEntitlement:
+                return "This installation cannot access the shared widget keychain."
+            case errSecInteractionNotAllowed:
+                return "Unlock your iPhone, then try again."
+            default: return "Could not save the widget settings."
+            }
+        }
     }
 }
 
 enum GateWidgetStore {
-    static let group = "group.com.locklink.locklink"
+    private static let originalGroup = "group.com.locklink.locklink"
+    // Both targets compile this file and resolve their own installed bundle.
+    // AltStore appends a signing-team suffix to App Groups during installation.
+    static let group: String = {
+        let bundle = Bundle.main
+        let metadata = bundle.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
+        let profile = bundle.url(forResource: "embedded", withExtension: "mobileprovision")
+            .flatMap { try? Data(contentsOf: $0) }
+        return resolveGroup(metadataGroups: metadata, profileData: profile) {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        } ?? originalGroup
+    }()
+
+    static func resolveGroup(metadataGroups: [String], profileData: Data?,
+                             isAccessible: (String) -> Bool) -> String? {
+        if isAccessible(originalGroup) { return originalGroup }
+        let candidates = Set(metadataGroups + profileGroups(profileData)).filter { candidate in
+            // Never select another app's group, nor invent a group from a bundle ID.
+            candidate.hasPrefix(originalGroup + ".") &&
+                candidate.count > originalGroup.count + 1 && isAccessible(candidate)
+        }
+        // Refuse an ambiguous destination for the gate credential.
+        return candidates.count == 1 ? candidates.first : nil
+    }
+
+    private static func profileGroups(_ data: Data?) -> [String] {
+        // Provisioning metadata discovers candidates, not authority. iOS must
+        // grant container access and Keychain enforces its own entitlement check.
+        guard let data = data,
+              let start = data.range(of: Data("<plist".utf8)),
+              let end = data.range(of: Data("</plist>".utf8),
+                                   in: start.lowerBound..<data.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(
+                from: data.subdata(in: start.lowerBound..<end.upperBound),
+                options: [], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any] else { return [] }
+        return entitlements["com.apple.security.application-groups"] as? [String] ?? []
+    }
+
     static let kind = "LockLinkGate"
     static var defaults: UserDefaults? { UserDefaults(suiteName: group) }
     private static var query: [String: Any] { [
@@ -43,19 +113,19 @@ enum GateWidgetStore {
 
     static func save(_ config: GateWidgetConfiguration) throws {
         try config.validate()
-        let changed = (try? load()) != config
         guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) != nil else {
-            throw GateWidgetError.message("Enable the shared App Group for LockLink and its widget.")
+            throw GateWidgetError.appGroupUnavailable
         }
+        let changed = (try? load()) != config
         let data = try JSONEncoder().encode(config)
         let values: [String: Any] = [kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]
         let status = SecItemUpdate(query as CFDictionary, values as CFDictionary)
         if status == errSecItemNotFound {
             let addStatus = SecItemAdd(query.merging(values) { _, new in new } as CFDictionary, nil)
-            guard addStatus == errSecSuccess else { throw GateWidgetError.message("Could not share widget settings.") }
+            guard addStatus == errSecSuccess else { throw GateWidgetError.keychain(addStatus) }
         } else if status != errSecSuccess {
-            throw GateWidgetError.message("Could not share widget settings.")
+            throw GateWidgetError.keychain(status)
         }
         defaults?.set(true, forKey: "configured")
         if changed {

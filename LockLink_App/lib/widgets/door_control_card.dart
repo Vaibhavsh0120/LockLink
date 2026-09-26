@@ -27,12 +27,14 @@ class DoorControlCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
-    final statusColor = !online
+    final statusColor = dark
+        ? (online && ready ? colors.onSurface : colors.onSurfaceVariant)
+        : !online
         ? colors.onSurfaceVariant
         : !ready || active
-        ? (dark ? const Color(0xFFE8C384) : const Color(0xFF805712))
-        : (dark ? const Color(0xFFA8D5B2) : const Color(0xFF386446));
-    final canUnlock = online && ready && !active;
+        ? const Color(0xFF805712)
+        : const Color(0xFF386446);
+    final canUnlock = online && ready && !active && onUnlock != null;
 
     return Card(
       child: Padding(
@@ -131,6 +133,24 @@ class DoorControlCard extends StatelessWidget {
                           const Positioned.fill(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
+                        Positioned.fill(
+                          child: Semantics(
+                            button: true,
+                            enabled: canUnlock,
+                            label: 'Unlock door',
+                            value: stateLabel,
+                            child: Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                key: const ValueKey('door-unlock-control'),
+                                customBorder: const CircleBorder(),
+                                onTap: canUnlock ? onUnlock : null,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

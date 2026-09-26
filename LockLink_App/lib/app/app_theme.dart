@@ -4,41 +4,71 @@ import 'package:flutter/material.dart';
 abstract final class AppTheme {
   static ThemeData build(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final scheme =
-        ColorScheme.fromSeed(
-          seedColor: const Color(0xFF526057),
-          brightness: brightness,
-        ).copyWith(
-          primary: dark ? const Color(0xFFE2EADB) : const Color(0xFF222823),
-          onPrimary: dark ? const Color(0xFF222823) : const Color(0xFFF6F4EF),
-          primaryContainer: dark
-              ? const Color(0xFF303D32)
-              : const Color(0xFFE7ECE2),
-          onPrimaryContainer: dark
-              ? const Color(0xFFE2EADB)
-              : const Color(0xFF303D32),
-          secondaryContainer: dark
-              ? const Color(0xFF303A32)
-              : const Color(0xFFEAECE5),
-          onSecondaryContainer: dark
-              ? const Color(0xFFE2EADB)
-              : const Color(0xFF222823),
-          surface: dark ? const Color(0xFF141A16) : const Color(0xFFF6F4EF),
-          onSurface: dark ? const Color(0xFFF3F3EB) : const Color(0xFF222823),
-          surfaceContainerLow: dark
-              ? const Color(0xFF202722)
-              : const Color(0xFFFFFEFA),
-          surfaceContainerHighest: dark
-              ? const Color(0xFF303A32)
-              : const Color(0xFFEAECE5),
-          onSurfaceVariant: dark
-              ? const Color(0xFFB5C2B7)
-              : const Color(0xFF526057),
-          outline: dark ? const Color(0xFF869789) : const Color(0xFF707C72),
-          outlineVariant: dark
-              ? const Color(0xFF414D43)
-              : const Color(0xFFD5DBD4),
-        );
+    final scheme = dark
+        ? const ColorScheme.dark(
+            primary: Color(0xFFF2F2F2),
+            onPrimary: Color(0xFF202020),
+            primaryContainer: Color(0xFF333333),
+            onPrimaryContainer: Color(0xFFF2F2F2),
+            primaryFixed: Color(0xFFE5E5E5),
+            primaryFixedDim: Color(0xFFC6C6C6),
+            onPrimaryFixed: Color(0xFF202020),
+            onPrimaryFixedVariant: Color(0xFF444444),
+            secondary: Color(0xFFC6C6C6),
+            onSecondary: Color(0xFF202020),
+            secondaryContainer: Color(0xFF303030),
+            onSecondaryContainer: Color(0xFFF2F2F2),
+            secondaryFixed: Color(0xFFE5E5E5),
+            secondaryFixedDim: Color(0xFFC6C6C6),
+            onSecondaryFixed: Color(0xFF202020),
+            onSecondaryFixedVariant: Color(0xFF444444),
+            tertiary: Color(0xFFC6C6C6),
+            onTertiary: Color(0xFF202020),
+            tertiaryContainer: Color(0xFF333333),
+            onTertiaryContainer: Color(0xFFF2F2F2),
+            tertiaryFixed: Color(0xFFE5E5E5),
+            tertiaryFixedDim: Color(0xFFC6C6C6),
+            onTertiaryFixed: Color(0xFF202020),
+            onTertiaryFixedVariant: Color(0xFF444444),
+            error: Color(0xFFF2F2F2),
+            onError: Color(0xFF202020),
+            errorContainer: Color(0xFF3B3B3B),
+            onErrorContainer: Color(0xFFF2F2F2),
+            surface: Color(0xFF000000),
+            onSurface: Color(0xFFF3F3F3),
+            surfaceDim: Color(0xFF000000),
+            surfaceBright: Color(0xFF393939),
+            surfaceContainerLowest: Color(0xFF080808),
+            surfaceContainerLow: Color(0xFF1D1D1D),
+            surfaceContainer: Color(0xFF242424),
+            surfaceContainerHigh: Color(0xFF2B2B2B),
+            surfaceContainerHighest: Color(0xFF333333),
+            onSurfaceVariant: Color(0xFFBDBDBD),
+            outline: Color(0xFF909090),
+            outlineVariant: Color(0xFF444444),
+            inverseSurface: Color(0xFFE5E5E5),
+            onInverseSurface: Color(0xFF202020),
+            inversePrimary: Color(0xFF555555),
+            surfaceTint: Colors.transparent,
+          )
+        : ColorScheme.fromSeed(
+            seedColor: const Color(0xFF526057),
+            brightness: brightness,
+          ).copyWith(
+            primary: const Color(0xFF222823),
+            onPrimary: const Color(0xFFF6F4EF),
+            primaryContainer: const Color(0xFFE7ECE2),
+            onPrimaryContainer: const Color(0xFF303D32),
+            secondaryContainer: const Color(0xFFEAECE5),
+            onSecondaryContainer: const Color(0xFF222823),
+            surface: const Color(0xFFF6F4EF),
+            onSurface: const Color(0xFF222823),
+            surfaceContainerLow: const Color(0xFFFFFEFA),
+            surfaceContainerHighest: const Color(0xFFEAECE5),
+            onSurfaceVariant: const Color(0xFF526057),
+            outline: const Color(0xFF707C72),
+            outlineVariant: const Color(0xFFD5DBD4),
+          );
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),

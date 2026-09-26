@@ -8,7 +8,25 @@ can pulse a power-to-unlock 12 V lock for two seconds.
 
 - `LockLink_App/` — Flutter app for Android, iOS, and web.
 - `LockLink_IoT/` — PlatformIO Arduino firmware for ESP32-S3-DevKitC-1.
+- `LockLink_Matter/` — alternate ESP32-S3 Matter firmware for a momentary
+  **Door Release** switch in Apple Home, Google Home, and Alexa.
 - `LockLink_Docs/` — wiring and release notes.
+
+## Apple Home, Siri, Google Home, and Alexa
+
+The alternate Matter firmware exposes **Door Release** as a switch/outlet:
+turning it On requests a two-second release, then it automatically turns Off.
+It uses one-time Matter pairing and no door-lock voice PIN. Anyone authorized
+to operate this switch can release the door; Wi-Fi membership alone does not
+identify the owner. Off describes the output, not the physical door position.
+
+Apple documents local Wi-Fi Matter control without a home hub on iOS 18+.
+Google Home and Alexa require compatible Matter controllers. No integration
+subscription is built into this project. The existing Android/iPhone app keeps
+its authenticated local control. Start with the [Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md).
+Follow [Matter setup](LockLink_Docs/MATTER_SETUP.md)
+for configuration, development-accessory pairing, build instructions, and
+physical verification requirements. Actual ecosystem pairing remains unverified.
 
 ## LED test
 
@@ -54,8 +72,11 @@ no door-position sensor.
 
 ## Mobile releases
 
-Version **1.5.0** refreshes the app with warm light/dark themes, focused door
-control, and compact responsive settings. See [v1.5.0 release notes](LockLink_Docs/releases/v1.5.0.md).
+Version **1.5.0** introduced focused door control and compact responsive settings.
+The current source keeps the light theme and uses neutral black/grays in dark
+mode. Both the center circular control and the Unlock button request the same
+authenticated release. See [v1.5.0 release notes](LockLink_Docs/releases/v1.5.0.md)
+for the published release.
 
 Native gate widgets are available for Android Home Screen and iPhone
 Home Screen, Today View, and Lock Screen. See [widget setup](LockLink_Docs/WIDGETS.md)
