@@ -182,6 +182,12 @@ void printPairing() {
   }
 }
 
+void printStatus() {
+  Serial.printf("Matter: %s; Wi-Fi: %s\n",
+      Matter.isDeviceCommissioned() ? "paired" : "not paired - add Door Release in Home",
+      Matter.isWiFiConnected() ? "connected" : "not connected");
+}
+
 void resetPairing() {
   if (!started) return;
   resetting = true;

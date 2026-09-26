@@ -1,12 +1,19 @@
 #pragma once
-#define LOCKLINK_WIFI_SSID "YOUR_WIFI_NAME"
-#define LOCKLINK_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
-// Keep relay mode off until wiring and power ratings have been verified.
-// Generate a 64-character hex key with: python -c "import secrets; print(secrets.token_hex(32))"
-#define LOCKLINK_RELAY_ENABLED 1 // 0 keeps the LED prototype mode; 1 enables the relay output.
+
+// Do NOT put your home Wi-Fi password or SSID in this file.
+// First pair in Apple Home (or a supported Google/Alexa Matter setup).
+// That setup sends the Wi-Fi credentials to the ESP32 over Bluetooth LE;
+// Matter saves them on the board and reconnects after a reboot.
+// Normal control uses Wi-Fi, not Bluetooth. Use a 2.4 GHz home network.
+// A fresh board has no app connection until this pairing step succeeds.
+// The LockLink app does not currently provision Wi-Fi itself.
+// First test using the board's RGB LED. Enable only after verifying relay wiring.
+#define LOCKLINK_RELAY_ENABLED 0
 #define LOCKLINK_RELAY_GPIO 2
-// Matches the app's default pairing value "1234".
-#define LOCKLINK_UNLOCK_KEY_HEX "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
-// Optional exact local web origin, e.g. "http://localhost:8080".
-// Leave empty to allow native Android/iOS apps only in relay mode.
+#define LOCKLINK_INDICATOR_GPIO 48 // Use 38 on boards with the RGB LED on GPIO 38.
+
+// App authentication is separate from Matter pairing and any voice PIN.
+// Generate a strong hex key: python -c "import secrets; print(secrets.token_hex(32))"
+// Enter the same hex key in the LockLink app's device settings.
+#define LOCKLINK_UNLOCK_KEY_HEX ""
 #define LOCKLINK_ALLOWED_WEB_ORIGIN ""

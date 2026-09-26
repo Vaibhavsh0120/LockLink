@@ -40,27 +40,34 @@ a meter and no lock connected before applying 12 V.
 ## Pair and enable
 
 1. Copy `LockLink_IoT/include/private_config.example.h` to
-   `include/private_config.h` if needed. The private file is gitignored.
-2. The supplied configuration matches the app's default pairing value `1234`.
-   To replace it, generate a random key with
+   `LockLink_IoT/include/private_config.h` only if it does not already exist.
+   Preserve existing private settings; this file is gitignored. First test
+   the LED with `LOCKLINK_RELAY_ENABLED 0` and follow the
+   [Apple Home quickstart](APPLE_HOME_QUICKSTART.md) to provide Wi-Fi over BLE.
+2. The public example has an empty key. If a private key is not already
+   configured, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
    Put it in `LOCKLINK_UNLOCK_KEY_HEX` and app settings. Set
    `LOCKLINK_RELAY_ENABLED 1`. Keep GPIO 2 and active-HIGH for DFR0473.
-3. Flash the firmware. Serial Monitor must report the relay output and must
-   **not** say `Relay NOT armed`.
+3. In `LockLink_IoT`, run `pio run -e esp32-s3-n16r8 -t upload`, then
+   `pio device monitor -b 115200`. Serial Monitor must report the relay output
+   and `armed: yes`; it must **not** say `Relay NOT armed`. Type `STATUS` and
+   Enter to check Wi-Fi and the local app address after commissioning.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
    Unlock sends a signed command and pulses the relay for two seconds.
 
-The app starts with `192.168.0.111` and `1234` when no values have been saved.
-For a different 4–64 character text pairing value, set `LOCKLINK_UNLOCK_KEY_HEX`
+The app's initial address and pairing value are placeholders; they do not
+configure the ESP32. Use its reported local address and your private key.
+For a 4–64 character text pairing value, set `LOCKLINK_UNLOCK_KEY_HEX`
 to its SHA-256 hex digest and enter the original text in the app. A 64-character
 hex key is used directly, without hashing. Changing firmware configuration
 requires rebuilding and flashing the ESP32; saving app settings does not
 change the device's key or IP address.
 
-An empty or invalid firmware key leaves the relay unarmed, even if relay mode
-was enabled. The old unauthenticated LED command cannot actuate the relay.
+An empty or invalid firmware key leaves the relay unarmed for both Matter and
+app commands, even if relay mode was enabled. An unauthenticated LED command
+cannot actuate the relay.
 An unlock request uses a fresh challenge and cannot be replayed. The native
 app stores the key in secure storage; the web app keeps it only in memory.
 
@@ -73,3 +80,12 @@ If ESP32 power fails, GPIO 2's pulldown and the normally open contact leave
 this power-to-unlock lock unpowered. Wi-Fi loss disables new app commands;
 an already started pulse still ends after two seconds. This software does not
 measure lock position or prove that the door opened.
+
+The same firmware also accepts authorized Matter switch commands: On starts
+the two-second pulse and Off ends it early. Repeated On and app unlock
+requests during an active pulse must not extend it. Verify app On followed by
+Matter Off, a new release immediately after expiry, Wi-Fi loss during a pulse,
+and reboot with the lock disconnected before testing the installed lock.
+Anyone allowed to operate **Door Release** can release the door, including
+through voice commands or automations; do not include it in general All On
+scenes. See [Matter setup](MATTER_SETUP.md) for controller permissions.

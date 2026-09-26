@@ -1,4 +1,0 @@
-.pio/
-include/private_config.h
-test/native/lock_state_test.exe
-*.log

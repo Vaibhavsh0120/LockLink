@@ -2,9 +2,9 @@ name: Firmware checks
 
 on:
   push:
-    paths: ['LockLink_IoT/**', 'LockLink_Matter/**', '.github/workflows/firmware.yml']
+    paths: ['LockLink_IoT/**', '.github/workflows/firmware.yml']
   pull_request:
-    paths: ['LockLink_IoT/**', 'LockLink_Matter/**', '.github/workflows/firmware.yml']
+    paths: ['LockLink_IoT/**', '.github/workflows/firmware.yml']
   workflow_dispatch:
 
 permissions:
@@ -21,17 +21,15 @@ jobs:
       - name: Install PlatformIO
         run: python -m pip install platformio==6.2.0
       - name: Test actuator behavior
-        run: python LockLink_Matter/tools/test_native.py
-      - name: Build original firmware
-        run: pio run -d LockLink_IoT
-      - name: Build Matter firmware (LED mode)
-        run: pio run -d LockLink_Matter -e esp32-s3-matter
+        run: python LockLink_IoT/tools/test_native.py
+      - name: Build unified app and Matter firmware (LED mode)
+        run: pio run -d LockLink_IoT -e esp32-s3-n16r8
       - uses: actions/upload-artifact@v7
         with:
-          name: locklink-matter-led-firmware
+          name: locklink-iot-led-firmware
           path: |
-            LockLink_Matter/.pio/build/esp32-s3-matter/firmware.bin
-            LockLink_Matter/.pio/build/esp32-s3-matter/bootloader.bin
-            LockLink_Matter/.pio/build/esp32-s3-matter/partitions.bin
-            LockLink_Matter/.pio/build/esp32-s3-matter/firmware.factory.bin
+            LockLink_IoT/.pio/build/esp32-s3-n16r8/firmware.bin
+            LockLink_IoT/.pio/build/esp32-s3-n16r8/bootloader.bin
+            LockLink_IoT/.pio/build/esp32-s3-n16r8/partitions.bin
+            LockLink_IoT/.pio/build/esp32-s3-n16r8/firmware.factory.bin
           if-no-files-found: error

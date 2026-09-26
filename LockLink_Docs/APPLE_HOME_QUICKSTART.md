@@ -1,21 +1,38 @@
 # Add your ESP32-S3 to Apple Home
 
-Use `LockLink_Matter`, the new firmware. The original `LockLink_IoT` firmware
-does not appear in Apple Home. Start with the relay disconnected and test the
-onboard LED first.
+Use `LockLink_IoT`, the single firmware for Apple Home and the LockLink app.
+Start with the relay disconnected and test the onboard LED first. If you
+already have `include/private_config.h`, preserve it and check that
+`LOCKLINK_RELAY_ENABLED` is `0` for the LED test. Otherwise copy the public
+example to that private file. Wi-Fi is supplied during Matter pairing;
+there is no separate Wi-Fi configuration step in the source code.
+
+**Where does the Wi-Fi password go?** Keep your iPhone connected to your home
+Wi-Fi and Bluetooth enabled. During Add Accessory, the Home setup process
+passes the network credentials to the ESP32 over Bluetooth LE. Follow any
+network/password prompt on the phone; do not put your router password in
+`LOCKLINK_UNLOCK_KEY_HEX`. That field is a separate app authentication key.
+Matter saves the Wi-Fi credentials on the board for subsequent restarts.
+
+On a fresh board, complete Home pairing before connecting the LockLink app.
+The app currently accepts the board's address and app key; it cannot send
+Wi-Fi credentials to an unconfigured board. Until pairing supplies them,
+`Wi-Fi: not connected` and no app IP address are expected. Normal commands
+use Wi-Fi after setup; Bluetooth is only the initial setup transport here.
+This follows Espressif's [Wi-Fi pairing over Bluetooth example](https://github.com/espressif/arduino-esp32/blob/master/libraries/Matter/examples/Commissioning/MatterCHIPoBLEWiFi/README.md).
 
 ## 1. Flash the board
 
 Connect the ESP32-S3 by USB. On this Windows computer, open PowerShell and run:
 
 ```powershell
-cd D:\_Root\Downloads\LockLink\LockLink_Matter
+cd D:\_Root\Downloads\LockLink\LockLink_IoT
 $pio = "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe"
-& $pio run -e esp32-s3-matter -t upload
+& $pio run -e esp32-s3-n16r8 -t upload
 & $pio device monitor -b 115200
 ```
 
-The default build uses the LED on GPIO 48, not the relay. If upload cannot pick
+The public example uses the LED on GPIO 48. If upload cannot pick
 the USB port, add `--upload-port COMx` using your board's actual port.
 
 Press the board's reset button after opening the monitor. Look for the **manual
@@ -24,7 +41,8 @@ to show it while the device is unpaired.
 
 ## 2. Add it on your iPhone
 
-1. Turn on Bluetooth and connect the iPhone to your home Wi-Fi.
+1. Turn on Bluetooth and connect the iPhone to your home Wi-Fi. The ESP32
+   needs 2.4 GHz; avoid a guest network that isolates devices.
 2. Open **Home → + → Add Accessory**.
 3. Choose **More Options** / manual setup-code entry and enter the code from
    the serial monitor. Exact wording can vary by iOS version.
@@ -37,19 +55,28 @@ to show it while the device is unpaired.
 
 It appears as a switch/outlet, as requested. It does not show a verified locked
 or unlocked door state. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
-documents Add Anyway; this firmware has not yet been paired on your iPhones.
+documents Add Anyway; actual pairing and Siri operation on your iPhones,
+including iOS 27, still need to be verified.
 Apple [supports local Wi-Fi Matter control on iOS 18+ without a home hub](https://support.apple.com/en-us/102135).
+
+After pairing, type `STATUS` and press Enter in the USB monitor to check
+commissioning, Wi-Fi and the app's local address. A single “sta is connecting”
+warning at startup does not mean pairing failed. If connection errors continue
+or Home says **No Response**, use the [diagnostic steps](MATTER_SETUP.md#pairing-information-reset-and-recovery)
+before resetting anything.
 
 ## 3. Enable the relay after the LED test
 
-1. Copy `include/private_config.example.h` to `include/private_config.h`.
+1. Open `include/private_config.h` in `LockLink_IoT`. Copy the example only
+   if this private file does not already exist.
 2. Set `LOCKLINK_RELAY_ENABLED` to `1` and confirm the relay GPIO and
    [wiring](RELAY_SETUP.md).
-3. Generate a private app key with
+3. If no private app key is configured, generate one with
    `python -c "import secrets; print(secrets.token_hex(32))"` and paste it into
    `LOCKLINK_UNLOCK_KEY_HEX`. Enter that same key once in LockLink's settings.
 4. Close the serial monitor with Ctrl+C, then run the upload command again.
-   Normal firmware updates preserve Matter pairing.
+   Normal firmware updates with the same Matter partition layout preserve
+   pairing; do not erase the flash for an ordinary update.
 5. Test one two-second release, early Off, repeat On, Wi-Fi loss during a
    release, and reboot. The relay must never stay energized after the pulse.
 

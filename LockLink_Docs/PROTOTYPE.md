@@ -1,8 +1,13 @@
-# Prototype boundaries
+# Firmware and prototype boundaries
 
-The initial API is intentionally small:
+`LockLink_IoT` is the single firmware for the Matter **Door Release** switch
+and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning.
+Both control routes share one two-second release controller. Matter On starts
+a pulse, Off stops it early, and repeated On does not extend it.
 
-- `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true}`
+The local HTTP API remains intentionally small:
+
+- `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true,"matter_accessory":"momentary_switch","physical_state_known":false}`
 - `POST /unlock` in LED mode → `{"success":true,"state":"unlocking","duration_ms":2000}`
 - Repeated `POST /unlock` during a pulse → HTTP 409.
 
@@ -13,13 +18,26 @@ signs `unlock:<nonce>` with HMAC-SHA256 using the pairing key, then sends
 The ESP32 accepts a challenge once, for at most ten seconds. Requests without
 a valid signature return HTTP 401 and cannot actuate the relay.
 
-The output logic lives in `LockLink_IoT/src/lock_output.cpp`. The default
+The output logic lives in `LockLink_IoT/src/release_output.cpp`. The default
 driver uses the onboard addressable RGB LED on GPIO 48. Explicit relay mode
-drives GPIO 2 while the RGB LED stays an indicator. A nonblocking `millis()`
-timer ends the pulse even if Wi-Fi drops. See
+drives GPIO 2 while the RGB LED stays an indicator. An ESP timer task ends
+the relay pulse independently of network handling, even if Wi-Fi drops. See
 [relay setup](RELAY_SETUP.md) for the physical wiring and pairing steps.
 
 LED mode allows cross-origin browser requests on a trusted local network.
 Relay mode requires a signed, single-use challenge for every unlock and
 restricts browser origins to one explicitly configured local origin. Neither
 mode should be exposed to the public internet.
+
+The public configuration starts in LED mode with an empty app signing key.
+Keep local keys and pin overrides in `LockLink_IoT/include/private_config.h`.
+An invalid or missing key leaves relay mode unarmed for both Matter and app
+commands. The app's saved key and the Matter commissioning code are different
+credentials and must not be published.
+
+USB `STATUS` reports Matter pairing, Wi-Fi, the app IPv4 address and whether
+the release is active. `PAIR` displays setup information; `RESET MATTER`
+deliberately clears Matter pairing/network settings. The status field `locked`
+and Matter Off both mean the output is inactive; neither verifies the latch
+or door position. See [Matter setup](MATTER_SETUP.md) for pairing, recovery
+and physical test requirements.

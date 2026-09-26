@@ -1,6 +1,7 @@
 #include "local_api.h"
-#include <WiFi.h>
+#include <IPAddress.h>
 #include "config.h"
+#include "local_network.h"
 
 void LocalApi::headers() {
   if (!config::relayEnabled) {
@@ -66,18 +67,31 @@ void LocalApi::begin() {
 }
 
 void LocalApi::poll() {
-  // Matter owns Wi-Fi credentials and reconnection. Never call WiFi.begin()
-  // here or overwrite credentials supplied by the commissioning controller.
-  if (WiFi.status() == WL_CONNECTED) {
+  // Matter creates the ESP-IDF interface; Arduino's WiFi.status() cache is not
+  // initialized on this path. Observe the real interface without WiFi.begin().
+  const auto network = local_network::snapshot();
+  if (network.ready()) {
     if (!listening_) {
       server_.begin();
       listening_ = true;
       Serial.print("LockLink app address: ");
-      Serial.println(WiFi.localIP());
+      Serial.println(IPAddress(network.ipv4));
     }
     server_.handleClient();
   } else if (listening_) {
     server_.stop();
     listening_ = false;
+    Serial.println("App connection paused: waiting for Wi-Fi and an IPv4 address.");
+  }
+}
+
+void LocalApi::printStatus() {
+  const auto network = local_network::snapshot();
+  Serial.print("App HTTP: ");
+  if (network.ready() && listening_) {
+    Serial.print("http://");
+    Serial.println(IPAddress(network.ipv4));
+  } else {
+    Serial.println("waiting for Wi-Fi / IPv4 (pair in Home if not yet paired).");
   }
 }

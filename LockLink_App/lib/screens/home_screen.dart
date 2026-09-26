@@ -23,7 +23,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DeviceSettings get _settings => widget.settings;
   final AppHaptics _haptics = AppHaptics();
   LockLinkApiService? _api;
@@ -31,6 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _address;
   bool _loading = true;
   bool _checking = false;
+  bool _userChecking = false;
+  bool _foreground = true;
+  bool _settingsOpen = false;
+  int _statusGeneration = 0;
   bool _online = false;
   bool _unlocking = false;
   bool _relayMode = false;
@@ -42,7 +46,37 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _initialize();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _statusGeneration++;
+    _pollTimer?.cancel();
+    if (_foreground && !_loading) unawaited(_refresh());
+  }
+
+  void _scheduleRefresh({bool immediate = false}) {
+    _pollTimer?.cancel();
+    if (!mounted ||
+        !_foreground ||
+        _settingsOpen ||
+        _api == null ||
+        _unlocking) {
+      return;
+    }
+    _pollTimer = Timer(
+      immediate
+          ? Duration.zero
+          : _online
+          ? const Duration(milliseconds: 500)
+          : const Duration(seconds: 5),
+      () => unawaited(_refresh()),
+    );
   }
 
   Future<void> _initialize() async {
@@ -72,7 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _api?.close();
     _address = address;
     _api = address == null ? null : LockLinkApiService(address);
+    _statusGeneration++;
     _checking = false;
+    _userChecking = false;
+    _unlocking = false;
     _online = false;
     _relayMode = false;
     _armed = true;
@@ -80,22 +117,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _unlockKey = null;
     _deviceState = 'locked';
     _pollTimer?.cancel();
-    if (address != null) {
-      _pollTimer = Timer.periodic(
-        const Duration(seconds: 10),
-        (_) => _refresh(),
-      );
-    }
   }
 
   Future<void> _refresh({bool userInitiated = false}) async {
     final api = _api;
-    if (api == null || _checking || _unlocking) return;
-    setState(() => _checking = true);
-    if (userInitiated) _haptics.tap();
+    if (api == null || !_foreground || _settingsOpen || _unlocking) return;
+    if (_checking) return;
+    _pollTimer?.cancel();
+    final generation = _statusGeneration;
+    _checking = true;
+    if (userInitiated) {
+      setState(() => _userChecking = true);
+      _haptics.tap();
+    }
     try {
       final DoorStatus status = await api.getStatus();
-      if (!mounted || api != _api) return;
+      if (!mounted || api != _api || generation != _statusGeneration) return;
       setState(() {
         _online = status.online;
         _deviceState = status.state;
@@ -104,11 +141,15 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       if (userInitiated && !status.online) _haptics.error();
     } catch (_) {
-      if (!mounted || api != _api) return;
+      if (!mounted || api != _api || generation != _statusGeneration) return;
       setState(() => _online = false);
       if (userInitiated) _haptics.error();
     } finally {
-      if (mounted && api == _api) setState(() => _checking = false);
+      if (mounted && api == _api) {
+        _checking = false;
+        if (_userChecking) setState(() => _userChecking = false);
+        _scheduleRefresh(immediate: generation != _statusGeneration);
+      }
     }
   }
 
@@ -118,17 +159,19 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     setState(() => _unlocking = true);
+    // A status request sent before this command cannot describe its outcome.
+    _statusGeneration++;
+    _pollTimer?.cancel();
     _haptics.tap();
     try {
-      final duration = await api.unlockDoor(
-        relayMode: _relayMode,
-        unlockKeyHex: _unlockKey,
-      );
+      await api.unlockDoor(relayMode: _relayMode, unlockKeyHex: _unlockKey);
       if (!mounted || api != _api) return;
-      setState(() => _pairingError = false);
+      setState(() {
+        _pairingError = false;
+        _deviceState = 'unlocking';
+      });
       // The device accepted the command; this is not a door-sensor reading.
       _haptics.success();
-      await Future<void>.delayed(duration);
     } on DeviceException catch (error) {
       if (mounted && api == _api) {
         _haptics.error();
@@ -169,6 +212,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _editAddress() async {
     _haptics.tap();
+    _settingsOpen = true;
+    _statusGeneration++;
+    _pollTimer?.cancel();
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => SettingsScreen(
@@ -178,7 +224,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    if (changed != true || !mounted) return;
+    _settingsOpen = false;
+    if (!mounted) return;
+    if (changed != true) {
+      await _refresh();
+      return;
+    }
     try {
       final address = await _settings.loadAddress();
       final savedKey = await _settings.loadUnlockKey(address);
@@ -191,12 +242,14 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       if (mounted) {
         _showMessage('Could not load device settings. Please try again.');
+        await _refresh();
       }
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _haptics.enabled = false;
     _pollTimer?.cancel();
     _api?.close();
@@ -330,10 +383,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             trailing: IconButton(
                               tooltip: 'Check connection',
-                              onPressed: _checking || _unlocking
+                              onPressed: _userChecking || _unlocking
                                   ? null
                                   : () => _refresh(userInitiated: true),
-                              icon: _checking
+                              icon: _userChecking
                                   ? const SizedBox.square(
                                       dimension: 20,
                                       child: CircularProgressIndicator(
