@@ -1,11 +1,11 @@
 {
-    "name": "locklink",
-    "short_name": "locklink",
+    "name": "LockLink",
+    "short_name": "LockLink",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#202020",
-    "theme_color": "#202020",
-    "description": "A new Flutter project.",
+    "background_color": "#F6F4EF",
+    "theme_color": "#F6F4EF",
+    "description": "Control your LockLink door on local Wi-Fi.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

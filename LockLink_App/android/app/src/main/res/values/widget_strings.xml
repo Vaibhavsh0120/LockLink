@@ -1,6 +1,9 @@
 <resources>
     <string name="gate_widget_title">LockLink · Gate</string>
     <string name="gate_widget_unlock">Unlock gate</string>
-    <string name="gate_widget_ready">Use the same Wi-Fi as your gate.</string>
+    <string name="gate_widget_ready">Same Wi-Fi</string>
     <string name="gate_widget_description">Send an unlock command without opening LockLink.</string>
+    <string name="gate_widget_short_action">Unlock</string>
+    <string name="gate_widget_circle_action">Gate</string>
+    <string name="gate_widget_circle_description">A small circular gate control. Request details appear after tapping.</string>
 </resources>

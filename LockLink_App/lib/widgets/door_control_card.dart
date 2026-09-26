@@ -26,131 +26,131 @@ class DoorControlCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final ringColor = !online || !ready
-        ? colors.outline
-        : active
-        ? const Color(0xFFD8AF66)
-        : const Color(0xFF80B98B);
-    final size = compact ? 208.0 : 236.0;
-    final innerSize = size - 22;
+    final dark = theme.brightness == Brightness.dark;
+    final statusColor = !online
+        ? colors.onSurfaceVariant
+        : !ready || active
+        ? (dark ? const Color(0xFFE8C384) : const Color(0xFF805712))
+        : (dark ? const Color(0xFFA8D5B2) : const Color(0xFF386446));
+    final canUnlock = online && ready && !active;
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(compact ? 20 : 28),
+        padding: EdgeInsets.all(compact ? 24 : 32),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: ringColor.withValues(alpha: online ? 0.12 : 0.08),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 8, color: ringColor),
-                    const SizedBox(width: 7),
-                    Text(
-                      statusText,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: ringColor,
-                        fontWeight: FontWeight.w700,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Front door', style: theme.textTheme.headlineMedium),
+                      const SizedBox(height: 8),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          stateLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: statusColor,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            SizedBox(height: compact ? 28 : 36),
-            SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: size,
-                    height: size,
+                const SizedBox(width: 12),
+                Tooltip(
+                  message: statusText,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
+                      color: colors.surface,
                       shape: BoxShape.circle,
-                      border: Border.all(color: ringColor, width: 3),
+                    ),
+                    child: Icon(
+                      online ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                      color: statusColor,
+                      size: 20,
                     ),
                   ),
-                  if (active)
-                    SizedBox(
-                      width: size,
-                      height: size,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        color: ringColor,
-                        backgroundColor: Colors.transparent,
-                      ),
-                    ),
-                  SizedBox(
-                    width: innerSize,
-                    height: innerSize,
-                    child: FilledButton(
-                      onPressed: online && ready && !active ? onUnlock : null,
-                      style: FilledButton.styleFrom(
-                        shape: const CircleBorder(),
-                        padding: EdgeInsets.zero,
-                        backgroundColor: colors.primary,
-                        foregroundColor: colors.onPrimary,
-                        disabledBackgroundColor: colors.surfaceContainerHighest,
-                        disabledForegroundColor: colors.onSurfaceVariant,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              active
-                                  ? Icons.lock_open_rounded
-                                  : Icons.lock_rounded,
-                              key: ValueKey(active),
-                              size: compact ? 52 : 62,
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: compact ? 200 : 224),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: colors.outlineVariant),
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            active ? 'UNLOCKING' : 'UNLOCK',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: online && ready && !active
-                                  ? colors.onPrimary
-                                  : colors.onSurfaceVariant,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                        ),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: AnimatedContainer(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: active
+                                    ? colors.primaryContainer
+                                    : colors.surface,
+                                border: Border.all(
+                                  color: colors.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                active
+                                    ? Icons.lock_open_rounded
+                                    : Icons.lock_outline_rounded,
+                                size: compact ? 64 : 72,
+                                color: online && ready
+                                    ? colors.primary
+                                    : colors.onSurfaceVariant,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        if (active)
+                          const Positioned.fill(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            SizedBox(height: compact ? 24 : 30),
-            Text(
-              stateLabel,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontSize: compact ? 18 : 20,
-                fontWeight: FontWeight.w600,
+            FilledButton.icon(
+              onPressed: canUnlock ? onUnlock : null,
+              icon: Icon(
+                active ? Icons.hourglass_top_rounded : Icons.lock_open_rounded,
+                size: 20,
               ),
+              label: Text(active ? 'Unlocking…' : 'Unlock door'),
             ),
             if (helperText != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 16),
               Text(
                 helperText!,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),
               ),

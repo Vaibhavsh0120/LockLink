@@ -1,3 +1,3 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#F2F2F2" /><corners android:radius="16dp" />
-</shape>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#306F8375">
+    <item><shape android:shape="oval"><solid android:color="@color/widget_action" /></shape></item>
+</ripple>

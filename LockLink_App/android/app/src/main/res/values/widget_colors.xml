@@ -1,0 +1,8 @@
+<resources>
+    <color name="widget_surface">#F6F4EF</color>
+    <color name="widget_ink">#222823</color>
+    <color name="widget_muted">#526057</color>
+    <color name="widget_border">#D5DBD4</color>
+    <color name="widget_action">#222823</color>
+    <color name="widget_on_action">#F6F4EF</color>
+</resources>

@@ -39,9 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final pinned = await WidgetBridge.requestPin();
       if (!mounted) return;
       setState(
-        () => _widgetMessage = pinned
-            ? 'Confirm the widget on your Home Screen.'
-            : 'Touch and hold your Home Screen, choose widgets, then LockLink. On iPhone, you can also add it to the Lock Screen or Today View.',
+        () => _widgetMessage = pinned ? 'Confirm on your Home Screen.' : 'Hold your Home Screen, then choose Widgets → LockLink. iPhone also supports Lock Screen and Today View.',
       );
     } catch (_) {
       if (!mounted) return;
@@ -108,14 +106,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       widget.haptics.success();
       setState(() => _saving = false);
       _message(
-        widgetsUpdated ? 'Device settings saved.' : 'Device saved. Use Update widgets in Settings to finish widget setup.',
+        widgetsUpdated
+            ? 'Device settings saved.'
+            : 'Device saved. Tap Set up widgets to finish.',
       );
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       widget.haptics.error();
-      _message('Could not save device settings. Please try again.');
+      _message('Could not save. Try again.');
     }
   }
 
@@ -162,200 +162,270 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Widget _section(String title, List<Widget> children) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 20),
-          ...children,
-        ],
+  Widget _section(String title, IconData icon, List<Widget> children) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(title, style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ...children,
+          ],
+        ),
       ),
-    ),
+    );
+  }
+
+  Widget _deviceSection(bool busy) => _section(
+    'Device',
+    Icons.router_outlined,
+    [
+      if (_loading)
+        const Center(child: CircularProgressIndicator())
+      else if (_loadError != null) ...[
+        Text(_loadError!),
+        TextButton(onPressed: _load, child: const Text('Retry')),
+      ] else
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Connect on the same Wi-Fi.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _address,
+                enabled: !busy,
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.next,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(
+                  labelText: 'Device IP address',
+                  hintText: '192.168.0.111',
+                ),
+                validator: (value) =>
+                    DeviceSettings.normalizeAddress(value ?? '') == null
+                    ? 'Enter a local IP or http:// address'
+                    : null,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _pairingKey,
+                enabled: !busy,
+                obscureText: !_showKey,
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _saveDevice(),
+                decoration: InputDecoration(
+                  labelText: 'Pairing key',
+                  helperText: 'Use the key set on your device.',
+                  suffixIcon: IconButton(
+                    tooltip: _showKey ? 'Hide pairing key' : 'Show pairing key',
+                    onPressed: busy
+                        ? null
+                        : () => setState(() => _showKey = !_showKey),
+                    icon: Icon(
+                      _showKey
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  try {
+                    DeviceSettings.signingKey(value ?? '');
+                    return null;
+                  } on FormatException {
+                    return 'Use 4 to 64 characters';
+                  }
+                },
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: busy ? null : _saveDevice,
+                child: Text(_saving ? 'Saving…' : 'Save device'),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+
+  Widget _preferencesSection(bool busy) =>
+      _section('Preferences', Icons.tune_rounded, [
+        const Text('Appearance'),
+        const SizedBox(height: 12),
+        ValueListenableBuilder<ThemeMode>(
+          valueListenable: widget.themeMode,
+          builder: (context, mode, child) => LayoutBuilder(
+            builder: (context, constraints) {
+              // Keep every choice readable with large accessibility text.
+              final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+              if (largeText || constraints.maxWidth < 250) {
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final entry in const {
+                      ThemeMode.light: 'Light',
+                      ThemeMode.dark: 'Dark',
+                      ThemeMode.system: 'System',
+                    }.entries)
+                      ChoiceChip(
+                        label: Text(entry.value),
+                        selected: mode == entry.key,
+                        onSelected: busy ? null : (_) => _setTheme(entry.key),
+                      ),
+                  ],
+                );
+              }
+              return SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                  ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+                  ButtonSegment(value: ThemeMode.system, label: Text('System')),
+                ],
+                selected: {mode},
+                onSelectionChanged: busy
+                    ? null
+                    : (values) => _setTheme(values.single),
+              );
+            },
+          ),
+        ),
+        if (AppHaptics.supported) ...[
+          const Divider(),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Haptic feedback'),
+            subtitle: const Text('Vibrate on taps and actions'),
+            value: widget.haptics.enabled,
+            onChanged: busy ? null : _setHaptics,
+          ),
+        ],
+      ]);
+
+  Widget _widgetsSection(bool busy) => _section(
+    'Home screen',
+    Icons.widgets_outlined,
+    [
+      Text(
+        'Unlock from a widget on the same Wi-Fi.',
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+      const SizedBox(height: 20),
+      OutlinedButton.icon(
+        onPressed: busy || _loading ? null : _updateWidgets,
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: Text(_updatingWidgets ? 'Updating…' : 'Set up widgets'),
+      ),
+      if (_widgetMessage != null) ...[
+        const SizedBox(height: 16),
+        Semantics(liveRegion: true, child: Text(_widgetMessage!)),
+      ],
+    ],
   );
 
   @override
   Widget build(BuildContext context) {
     final busy = _saving || _savingPreference || _updatingWidgets;
+    final theme = Theme.of(context);
     return PopScope(
       canPop: !busy,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Settings')),
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 580),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _section('Device', [
-                      if (_loading)
-                        const Center(child: CircularProgressIndicator())
-                      else if (_loadError != null) ...[
-                        Text(_loadError!),
-                        TextButton(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ] else
-                        Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text('Use the same Wi-Fi as your device.'),
-                              const SizedBox(height: 20),
-                              TextFormField(
-                                controller: _address,
-                                enabled: !busy,
-                                keyboardType: TextInputType.url,
-                                textInputAction: TextInputAction.next,
-                                autocorrect: false,
-                                decoration: const InputDecoration(
-                                  labelText: 'Device IP address',
-                                  hintText: '192.168.0.111',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) =>
-                                    DeviceSettings.normalizeAddress(
-                                          value ?? '',
-                                        ) ==
-                                        null
-                                    ? 'Enter a local IP address or http:// address'
-                                    : null,
-                              ),
-                              const SizedBox(height: 20),
-                              TextFormField(
-                                controller: _pairingKey,
-                                enabled: !busy,
-                                obscureText: !_showKey,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                textInputAction: TextInputAction.done,
-                                onFieldSubmitted: (_) => _saveDevice(),
-                                decoration: InputDecoration(
-                                  labelText: 'Pairing key',
-                                  helperText:
-                                      'Use the same key as your device.',
-                                  border: const OutlineInputBorder(),
-                                  suffixIcon: IconButton(
-                                    tooltip: _showKey
-                                        ? 'Hide pairing key'
-                                        : 'Show pairing key',
-                                    onPressed: () =>
-                                        setState(() => _showKey = !_showKey),
-                                    icon: Icon(
-                                      _showKey
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                    ),
-                                  ),
-                                ),
-                                validator: (value) {
-                                  try {
-                                    DeviceSettings.signingKey(value ?? '');
-                                    return null;
-                                  } on FormatException {
-                                    return 'Use 4 to 64 characters';
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 24),
-                              FilledButton(
-                                onPressed: busy ? null : _saveDevice,
-                                child: Text(
-                                  _saving ? 'Saving…' : 'Save device',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ]),
-                    const SizedBox(height: 24),
-                    if (WidgetBridge.supported) ...[
-                      _section('Widgets', [
-                        const Text(
-                          'Unlock your gate without opening LockLink. Use the same Wi-Fi as your device.',
-                        ),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: busy || _loading ? null : _updateWidgets,
-                          icon: const Icon(Icons.widgets_outlined),
-                          label: Text(
-                            _updatingWidgets
-                                ? 'Updating…'
-                                : 'Set up / update widgets',
-                          ),
-                        ),
-                        if (_widgetMessage != null) ...[
-                          const SizedBox(height: 12),
-                          Text(_widgetMessage!),
-                        ],
-                      ]),
-                      const SizedBox(height: 24),
-                    ],
-                    _section('Appearance', [
-                      ValueListenableBuilder<ThemeMode>(
-                        valueListenable: widget.themeMode,
-                        builder: (context, mode, child) =>
-                            SegmentedButton<ThemeMode>(
-                              style: SegmentedButton.styleFrom(
-                                selectedBackgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .primary,
-                                selectedForegroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimary,
-                              ),
-                              showSelectedIcon: false,
-                              segments: const [
-                                ButtonSegment(
-                                  value: ThemeMode.light,
-                                  label: Text('Light'),
-                                ),
-                                ButtonSegment(
-                                  value: ThemeMode.dark,
-                                  label: Text('Dark'),
-                                ),
-                                ButtonSegment(
-                                  value: ThemeMode.system,
-                                  label: Text('System'),
-                                ),
-                              ],
-                              selected: {mode},
-                              onSelectionChanged: busy
-                                  ? null
-                                  : (values) => _setTheme(values.single),
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Saved automatically. System follows your device theme.',
-                      ),
-                    ]),
-                    if (AppHaptics.supported) ...[
-                      const SizedBox(height: 24),
-                      _section('Haptics', [
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Haptic feedback'),
-                          subtitle: const Text(
-                            'Vibrate for taps and action results. Saved automatically.',
-                          ),
-                          value: widget.haptics.enabled,
-                          onChanged: busy ? null : _setHaptics,
-                        ),
-                      ]),
-                    ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 840;
+              final preferences = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _preferencesSection(busy),
+                  if (WidgetBridge.supported) ...[
+                    const SizedBox(height: 16),
+                    _widgetsSection(busy),
                   ],
+                ],
+              );
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  wide ? 32 : 20,
+                  24,
+                  wide ? 32 : 20,
+                  32,
                 ),
-              ),
-            ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: wide ? 960 : 560),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton.outlined(
+                              tooltip: 'Back',
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.arrow_back_rounded),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Settings',
+                                style: theme.textTheme.headlineMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        if (wide)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: _deviceSection(busy)),
+                              const SizedBox(width: 24),
+                              Expanded(child: preferences),
+                            ],
+                          )
+                        else ...[
+                          _deviceSection(busy),
+                          const SizedBox(height: 16),
+                          preferences,
+                        ],
+                        const SizedBox(height: 24),
+                        Text(
+                          'LockLink · v1.5.0',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

@@ -10,6 +10,12 @@ Open LockLink once after installing/upgrading and allow local-network access.
 Install the APK, open Settings, and tap **Set up / update widgets**. Confirm the
 launcher's pin prompt, or long-press Home Screen → Widgets → LockLink. The native
 widget works while Flutter is closed. A locked phone must be unlocked first.
+The widget picker offers **Gate · Circle** (1×1) and **Gate · Pill** (2×1).
+The circle is a 48dp control; the pill can be widened for more result text.
+Both follow the phone's light/dark appearance. Short status labels keep the small
+controls readable; the full request result appears as a system message after a
+tap and is included in the control's accessibility description. Existing widgets
+may retain their old size: resize them or remove and re-add from the picker.
 An Android sidebar can host it only if that manufacturer's sidebar supports
 standard app widgets; Home Screen is the supported placement.
 
@@ -17,7 +23,10 @@ standard app widgets; Home Screen is the supported placement.
 
 Interactive widgets require iOS 17 or later, including the APIs used on iOS 27.
 Home Screen and Today View support small/medium widgets. Lock Screen supports
-circular and rectangular widgets. Add LockLink through the system widget picker;
+circular and rectangular widgets. Add LockLink through the system widget picker.
+The small Home Screen design is circular; the medium design is a slim pill.
+iOS still reserves its standard small/medium grid space around these controls.
+Changing the visible shape cannot reduce that system-controlled footprint.
 iOS does not allow an app to install a widget without the user choosing it.
 The unlock AppIntent requests device authentication when required by iOS.
 
@@ -60,3 +69,7 @@ Windows can build the Android APK and run Flutter/Kotlin checks. An iOS build
 requires Xcode on macOS; signed entitlement access, iOS 27 widget presentation,
 device authentication and real gate operation need physical-device testing.
 The release workflow checks that the widget extension exists in the packaged app.
+The compact Android layouts were also inflated as real RemoteViews in an Android
+13 emulator, compared with the previous card, and inspected in light mode and
+dark mode with 130% text scaling. Launcher placement and physical gate operation
+remain separate device checks. iOS layout changes have not been rendered here.

@@ -60,9 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _unlockKey = await _settings.loadUnlockKey(address);
     if (!mounted) return;
     setState(() => _loading = false);
-    unawaited(WidgetBridge.synchronize(_settings).catchError((Object _) {
-      // Settings offers an explicit retry without blocking gate control.
-    }));
+    unawaited(
+      WidgetBridge.synchronize(_settings).catchError((Object _) {
+        // Settings offers an explicit retry without blocking gate control.
+      }),
+    );
     await _refresh();
   }
 
@@ -89,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refresh({bool userInitiated = false}) async {
     final api = _api;
     if (api == null || _checking || _unlocking) return;
-    _checking = true;
+    setState(() => _checking = true);
     if (userInitiated) _haptics.tap();
     try {
       final DoorStatus status = await api.getStatus();
@@ -106,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _online = false);
       if (userInitiated) _haptics.error();
     } finally {
-      if (api == _api) _checking = false;
+      if (mounted && api == _api) setState(() => _checking = false);
     }
   }
 
@@ -231,128 +233,142 @@ class _HomeScreenState extends State<HomeScreen> {
     final helperText = _address == null
         ? 'Add device address'
         : !_online
-        ? 'Check Wi-Fi and device'
+        ? 'Check your device and Wi-Fi.'
         : _relayMode && !_armed
-        ? 'Set key in ESP32'
+        ? 'Set a pairing key on your device.'
         : _pairingError
         ? 'Pairing key rejected'
         : _relayMode && _unlockKey == null
-        ? 'Add key in settings'
+        ? 'Add a pairing key in Settings.'
         : null;
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 600;
-            final horizontalPadding = compact ? 20.0 : 32.0;
-            final topPadding = compact ? 20.0 : 32.0;
-            const bottomPadding = 24.0;
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                topPadding,
-                horizontalPadding,
-                bottomPadding,
+                compact ? 20 : 32,
+                24,
+                compact ? 20 : 32,
+                32,
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 580),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight:
-                          constraints.maxHeight - topPadding - bottomPadding,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: colors.primary,
-                                borderRadius: BorderRadius.circular(13),
-                              ),
-                              child: Icon(
-                                Icons.lock_outline_rounded,
-                                color: colors.onPrimary,
-                              ),
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: colors.primary,
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'LockLink',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.7,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              tooltip: 'Check connection',
-                              onPressed: _address == null || _loading
-                                  ? null
-                                  : () => _refresh(userInitiated: true),
-                              icon: const Icon(Icons.refresh_rounded),
-                            ),
-                            IconButton(
-                              tooltip: 'Device settings',
-                              onPressed: _loading ? null : _editAddress,
-                              icon: const Icon(Icons.tune_rounded),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Front Door',
-                              style:
-                                  (compact
-                                          ? theme.textTheme.headlineMedium
-                                          : theme.textTheme.headlineLarge)
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -1.1,
-                                      ),
-                            ),
-                            const SizedBox(height: 24),
-                            DoorControlCard(
-                              online: _online,
-                              ready: ready,
-                              active: active,
-                              stateLabel: stateLabel,
-                              statusText: statusText,
-                              helperText: helperText,
-                              onUnlock: ready ? _unlock : null,
-                              compact: compact,
-                            ),
-                            if (_loading) ...[
-                              const SizedBox(height: 16),
-                              const Center(child: CircularProgressIndicator()),
-                            ] else if (_address == null) ...[
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                onPressed: _editAddress,
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('Connect device'),
-                              ),
-                            ],
-                          ],
-                        ),
-                        Center(
-                          child: Text(
-                            _relayMode
-                                ? 'Local only  ·  Lock control'
-                                : 'Local only  ·  LED prototype',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                            child: Icon(
+                              Icons.lock_outline_rounded,
+                              color: colors.onPrimary,
+                              size: 22,
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'LockLink',
+                              style: theme.textTheme.titleLarge,
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            tooltip: 'Device settings',
+                            onPressed: _loading ? null : _editAddress,
+                            icon: const Icon(Icons.tune_rounded, size: 22),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: compact ? 40 : 56),
+                      DoorControlCard(
+                        online: _online,
+                        ready: ready,
+                        active: active,
+                        stateLabel: _loading ? 'Connecting…' : stateLabel,
+                        statusText: _loading ? 'Connecting' : statusText,
+                        helperText: _loading ? null : helperText,
+                        onUnlock: ready ? _unlock : null,
+                        compact: compact,
+                      ),
+                      const SizedBox(height: 16),
+                      if (_loading)
+                        const LinearProgressIndicator()
+                      else if (_address == null)
+                        OutlinedButton.icon(
+                          onPressed: _editAddress,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Connect device'),
+                        )
+                      else
+                        Material(
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(20),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 6,
+                            ),
+                            leading: Icon(
+                              Icons.router_outlined,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            title: const Text('Connection'),
+                            subtitle: Text(
+                              _address!.replaceFirst('http://', ''),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              tooltip: 'Check connection',
+                              onPressed: _checking || _unlocking
+                                  ? null
+                                  : () => _refresh(userInitiated: true),
+                              icon: _checking
+                                  ? const SizedBox.square(
+                                      dimension: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.refresh_rounded),
+                            ),
+                            onTap: _editAddress,
+                          ),
                         ),
-                      ],
-                    ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.wifi_rounded,
+                            size: 14,
+                            color: colors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _relayMode
+                                  ? 'Local Wi-Fi · Lock control'
+                                  : 'Local Wi-Fi · LED prototype',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),

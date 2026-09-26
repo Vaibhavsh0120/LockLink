@@ -1,20 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="16dp"
-    android:background="@drawable/widget_background">
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="@string/gate_widget_title" android:textColor="#F2F2F2"
-        android:textStyle="bold" android:textSize="18sp" />
-    <TextView android:id="@+id/widget_status"
-        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-        android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp"
-        android:text="@string/gate_widget_ready" android:textColor="#D0D0D0"
-        android:textSize="12sp" android:maxLines="4" android:ellipsize="end"
-        android:accessibilityLiveRegion="polite" />
-    <Button android:id="@+id/widget_unlock"
-        android:layout_width="match_parent" android:layout_height="48dp"
-        android:background="@drawable/widget_button" android:text="@string/gate_widget_unlock"
-        android:textColor="#202020" android:textSize="15sp" android:textStyle="bold"
-        android:textAllCaps="false" android:contentDescription="@string/gate_widget_unlock" />
-</LinearLayout>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:id="@+id/widget_unlock"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layout_gravity="center" android:orientation="horizontal" android:gravity="center_vertical"
+        android:padding="6dp" android:paddingTop="4dp" android:paddingBottom="4dp" android:background="@drawable/widget_background"
+        android:contentDescription="@string/gate_widget_unlock">
+        <ImageView android:layout_width="32dp" android:layout_height="32dp"
+            android:padding="7dp" android:src="@drawable/widget_lock"
+            android:background="@drawable/widget_button" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:layout_marginEnd="4dp" android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/gate_widget_short_action" android:textColor="@color/widget_ink"
+                android:textStyle="bold" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" />
+            <TextView android:id="@+id/widget_status"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/gate_widget_ready" android:textColor="@color/widget_muted"
+                android:textSize="11sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false"
+                android:accessibilityLiveRegion="polite" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
