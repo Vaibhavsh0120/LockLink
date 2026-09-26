@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="16dp"
+    android:background="@drawable/widget_background">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/gate_widget_title" android:textColor="#F2F2F2"
+        android:textStyle="bold" android:textSize="18sp" />
+    <TextView android:id="@+id/widget_status"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp"
+        android:text="@string/gate_widget_ready" android:textColor="#D0D0D0"
+        android:textSize="12sp" android:maxLines="4" android:ellipsize="end"
+        android:accessibilityLiveRegion="polite" />
+    <Button android:id="@+id/widget_unlock"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:background="@drawable/widget_button" android:text="@string/gate_widget_unlock"
+        android:textColor="#202020" android:textSize="15sp" android:textStyle="bold"
+        android:textAllCaps="false" android:contentDescription="@string/gate_widget_unlock" />
+</LinearLayout>

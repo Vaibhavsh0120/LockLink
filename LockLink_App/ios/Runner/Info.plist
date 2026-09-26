@@ -27,7 +27,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>LockLink connects to your ESP32 on the same Wi-Fi network to check status and pulse the test LED.</string>
+	<string>LockLink connects to your gate on the same Wi-Fi to check status and send unlock commands.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

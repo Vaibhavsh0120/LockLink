@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -27,6 +28,17 @@ void main() {
   testWidgets(
     'settings applies themes and saves editable default credentials',
     (tester) async {
+      const widgetChannel = MethodChannel('com.locklink/widgets');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        widgetChannel,
+        (_) async => null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          widgetChannel,
+          null,
+        ),
+      );
       FlutterSecureStorage.setMockInitialValues({});
       final preferences = MemoryPreferences();
       final settings = DeviceSettings(preferences: preferences);

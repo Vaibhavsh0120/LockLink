@@ -13,9 +13,9 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.4'
@@ -30,9 +30,9 @@ jobs:
 
   android:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.4'
@@ -44,7 +44,10 @@ jobs:
           flutter pub get
           flutter build apk --release
           cp build/app/outputs/flutter-apk/app-release.apk ../LockLink-Android.apk
-      - uses: actions/upload-artifact@v4
+      - name: Test native widget protocol
+        working-directory: LockLink_App/android
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+      - uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: LockLink-Android.apk
@@ -54,7 +57,7 @@ jobs:
     needs: verify
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.4'
@@ -67,16 +70,17 @@ jobs:
           flutter pub get
           flutter build ios --release --no-codesign 2>&1 | tee ../ios-build.log
           test -d build/ios/iphoneos/Runner.app
+          test -d build/ios/iphoneos/Runner.app/PlugIns/LockLinkWidgets.appex
           mkdir -p ../ipa/Payload
           cp -R build/ios/iphoneos/Runner.app ../ipa/Payload/
           cd ../ipa
           zip -qry ../LockLink-iOS-unsigned.ipa Payload
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-unsigned-ipa
           path: LockLink-iOS-unsigned.ipa
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ios-build-log
@@ -85,7 +89,7 @@ jobs:
 
   publish:
     needs: [android, ios]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
@@ -93,22 +97,29 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ inputs.tag }}
     steps:
+      - uses: actions/checkout@v7
       - name: Validate tag
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: android-apk
           path: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ios-unsigned-ipa
           path: release
       - name: Create or update GitHub release
         run: |
           set -euo pipefail
+          notes="LockLink_Docs/releases/$RELEASE_TAG.md"
+          if [ ! -f "$notes" ]; then
+            notes="$RUNNER_TEMP/release-notes.md"
+            printf '%s\n' 'Local-network gate controller. Android APK is test-signed. The unsigned iOS IPA requires the app and widget extension to be signed before installation.' > "$notes"
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --clobber
+            gh release edit "$RELEASE_TAG" --notes-file "$notes"
           else
-            gh release create "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --target "$GITHUB_SHA" --title "LockLink $RELEASE_TAG" --notes "Local-network LED prototype. Android APK is test-signed. iOS IPA is unsigned and requires signing before device installation."
+            gh release create "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --target "$GITHUB_SHA" --title "LockLink $RELEASE_TAG" --notes-file "$notes"
           fi

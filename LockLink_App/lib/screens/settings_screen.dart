@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_haptics.dart';
 import '../services/device_settings.dart';
+import '../services/widget_bridge.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -28,6 +29,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingPreference = false;
   bool _showKey = false;
   String? _loadError;
+  bool _updatingWidgets = false;
+  String? _widgetMessage;
+
+  Future<void> _updateWidgets() async {
+    setState(() => _updatingWidgets = true);
+    try {
+      await WidgetBridge.synchronize(widget.settings);
+      final pinned = await WidgetBridge.requestPin();
+      if (!mounted) return;
+      setState(
+        () => _widgetMessage = pinned
+            ? 'Confirm the widget on your Home Screen.'
+            : 'Touch and hold your Home Screen, choose widgets, then LockLink. On iPhone, you can also add it to the Lock Screen or Today View.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _widgetMessage =
+            'Could not update widgets. Try again after reopening the app.',
+      );
+    } finally {
+      if (mounted) setState(() => _updatingWidgets = false);
+    }
+  }
 
   @override
   void initState() {
@@ -73,10 +98,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Save the credential first so a failed write cannot select an unpaired device.
       await widget.settings.saveUnlockKey(address, _pairingKey.text);
       await widget.settings.saveAddress(address);
+      var widgetsUpdated = true;
+      try {
+        await WidgetBridge.synchronize(widget.settings);
+      } catch (_) {
+        widgetsUpdated = false;
+      }
       if (!mounted) return;
       widget.haptics.success();
       setState(() => _saving = false);
-      _message('Device settings saved.');
+      _message(
+        widgetsUpdated ? 'Device settings saved.' : 'Device saved. Use Update widgets in Settings to finish widget setup.',
+      );
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -146,7 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final busy = _saving || _savingPreference;
+    final busy = _saving || _savingPreference || _updatingWidgets;
     return PopScope(
       canPop: !busy,
       child: Scaffold(
@@ -244,6 +277,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                     ]),
                     const SizedBox(height: 24),
+                    if (WidgetBridge.supported) ...[
+                      _section('Widgets', [
+                        const Text(
+                          'Unlock your gate without opening LockLink. Use the same Wi-Fi as your device.',
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: busy || _loading ? null : _updateWidgets,
+                          icon: const Icon(Icons.widgets_outlined),
+                          label: Text(
+                            _updatingWidgets
+                                ? 'Updating…'
+                                : 'Set up / update widgets',
+                          ),
+                        ),
+                        if (_widgetMessage != null) ...[
+                          const SizedBox(height: 12),
+                          Text(_widgetMessage!),
+                        ],
+                      ]),
+                      const SizedBox(height: 24),
+                    ],
                     _section('Appearance', [
                       ValueListenableBuilder<ThemeMode>(
                         valueListenable: widget.themeMode,

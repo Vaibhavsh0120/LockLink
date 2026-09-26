@@ -6,6 +6,7 @@ import '../models/door_status.dart';
 import '../services/app_haptics.dart';
 import '../services/device_settings.dart';
 import '../services/locklink_api_service.dart';
+import '../services/widget_bridge.dart';
 import '../widgets/door_control_card.dart';
 import 'settings_screen.dart';
 
@@ -59,6 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _unlockKey = await _settings.loadUnlockKey(address);
     if (!mounted) return;
     setState(() => _loading = false);
+    unawaited(WidgetBridge.synchronize(_settings).catchError((Object _) {
+      // Settings offers an explicit retry without blocking gate control.
+    }));
     await _refresh();
   }
 

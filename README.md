@@ -54,6 +54,12 @@ no door-position sensor.
 
 ## Mobile releases
 
+Version **1.4.0** adds native gate widgets for Android Home Screen and iPhone
+Home Screen, Today View, and Lock Screen. See [widget setup](LockLink_Docs/WIDGETS.md)
+and [v1.4.0 release notes](LockLink_Docs/releases/v1.4.0.md). iPhone widgets require
+a direct installation with the extension signed; LiveContainer guest installs
+cannot expose the widget to iOS.
+
 Push this repository to GitHub, then open **Actions → Manual mobile release →
 Run workflow** and enter a tag such as `v1.0.0`. After verification and both
 builds succeed, the workflow creates or updates a GitHub Release containing

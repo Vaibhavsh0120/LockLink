@@ -16,6 +16,14 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		B1400000000000000000000B = {isa = PBXBuildFile; fileRef = B14000000000000000000001; };
+		B1400000000000000000000C = {isa = PBXBuildFile; fileRef = B14000000000000000000003; };
+		B1400000000000000000000D = {isa = PBXBuildFile; fileRef = B14000000000000000000001; };
+		B1400000000000000000000E = {isa = PBXBuildFile; fileRef = B14000000000000000000002; };
+		B1400000000000000000000F = {isa = PBXBuildFile; fileRef = B14000000000000000000004; };
+		B14000000000000000000010 = {isa = PBXBuildFile; fileRef = B14000000000000000000008; };
+		B14000000000000000000011 = {isa = PBXBuildFile; fileRef = B14000000000000000000008; };
+		B14000000000000000000012 /* LockLinkWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B14000000000000000000009; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +34,7 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
+		B14000000000000000000016 = {isa = PBXContainerItemProxy; containerPortal = 97C146E61CF9000F007C117D; proxyType = 1; remoteGlobalIDString = B1400000000000000000001E; remoteInfo = LockLinkWidgets; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,6 +48,7 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B14000000000000000000015 /* Embed App Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (B14000000000000000000012, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +69,15 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B14000000000000000000001 /* GateWidgetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "GateWidgetStore.swift"; path = "Shared/GateWidgetStore.swift"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000002 /* GateWidgetClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "GateWidgetClient.swift"; path = "Shared/GateWidgetClient.swift"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000003 /* GateWidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "GateWidgetBridge.swift"; path = "Runner/GateWidgetBridge.swift"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000004 /* LockLinkWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LockLinkWidgets.swift"; path = "LockLinkWidgets/LockLinkWidgets.swift"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000005 /* Widget Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Widget Info.plist"; path = "LockLinkWidgets/Info.plist"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000006 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "Runner.entitlements"; path = "Runner/Runner.entitlements"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000007 /* LockLinkWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = "LockLinkWidgets.entitlements"; path = "LockLinkWidgets/LockLinkWidgets.entitlements"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000008 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "PrivacyInfo.xcprivacy"; path = "Shared/PrivacyInfo.xcprivacy"; sourceTree = SOURCE_ROOT; };
+		B14000000000000000000009 /* LockLinkWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = LockLinkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +89,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B14000000000000000000019 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -96,6 +116,7 @@
 		97C146E51CF9000F007C117D = {
 			isa = PBXGroup;
 			children = (
+				B14000000000000000000014,
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
@@ -107,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
+				B14000000000000000000009,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 			);
 			name = Products;
@@ -128,6 +150,7 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		B14000000000000000000014 /* Gate Widgets */ = {isa = PBXGroup; children = (B14000000000000000000001, B14000000000000000000002, B14000000000000000000003, B14000000000000000000004, B14000000000000000000005, B14000000000000000000006, B14000000000000000000007, B14000000000000000000008, ); name = "Gate Widgets"; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -152,6 +175,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				B14000000000000000000015 /* Embed App Extensions */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -162,6 +186,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				B14000000000000000000017,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -171,6 +196,7 @@
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B1400000000000000000001E /* LockLinkWidgets */ = {isa = PBXNativeTarget; buildConfigurationList = B1400000000000000000001F; buildPhases = (B14000000000000000000018, B14000000000000000000019, B1400000000000000000001A, ); buildRules = (); dependencies = (); name = LockLinkWidgets; productName = LockLinkWidgets; productReference = B14000000000000000000009; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -207,6 +233,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				B1400000000000000000001E,
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 			);
@@ -225,6 +252,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B14000000000000000000010,
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
@@ -232,6 +260,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B1400000000000000000001A = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B14000000000000000000011, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -281,12 +310,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1400000000000000000000B,
+				B1400000000000000000000C,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B14000000000000000000018 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B1400000000000000000000D, B1400000000000000000000E, B1400000000000000000000F, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -295,6 +327,7 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		B14000000000000000000017 = {isa = PBXTargetDependency; target = B1400000000000000000001E; targetProxy = B14000000000000000000016; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -379,6 +412,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -560,6 +594,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -582,6 +617,7 @@
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -594,6 +630,57 @@
 			};
 			name = Release;
 		};
+		B14000000000000000000020 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = LockLinkWidgets/LockLinkWidgets.entitlements;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 14;
+MARKETING_VERSION = 1.4.0;
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = LockLinkWidgets/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+PRODUCT_BUNDLE_IDENTIFIER = com.locklink.locklink.GateWidgets;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2";
+}; name = Debug; };
+		B14000000000000000000021 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = LockLinkWidgets/LockLinkWidgets.entitlements;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 14;
+MARKETING_VERSION = 1.4.0;
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = LockLinkWidgets/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+PRODUCT_BUNDLE_IDENTIFIER = com.locklink.locklink.GateWidgets;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2";
+}; name = Release; };
+		B14000000000000000000022 /* Profile */ = {isa = XCBuildConfiguration; buildSettings = {
+APPLICATION_EXTENSION_API_ONLY = YES;
+CODE_SIGN_ENTITLEMENTS = LockLinkWidgets/LockLinkWidgets.entitlements;
+CODE_SIGN_STYLE = Automatic;
+CURRENT_PROJECT_VERSION = 14;
+MARKETING_VERSION = 1.4.0;
+GENERATE_INFOPLIST_FILE = NO;
+INFOPLIST_FILE = LockLinkWidgets/Info.plist;
+IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+PRODUCT_BUNDLE_IDENTIFIER = com.locklink.locklink.GateWidgets;
+PRODUCT_NAME = "$(TARGET_NAME)";
+SDKROOT = iphoneos;
+SKIP_INSTALL = YES;
+SWIFT_VERSION = 5.0;
+TARGETED_DEVICE_FAMILY = "1,2";
+}; name = Profile; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -627,6 +714,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		B1400000000000000000001F = {isa = XCConfigurationList; buildConfigurations = (B14000000000000000000020, B14000000000000000000021, B14000000000000000000022, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
