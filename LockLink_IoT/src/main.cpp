@@ -13,6 +13,32 @@ uint32_t lastWifiAttemptMs = 0;
 bool wifiAttempted = false;
 bool serverStarted = false;
 
+void logConnectionDetails() {
+  Serial.print("LockLink ready at http://");
+  Serial.println(WiFi.localIP());
+
+  const String key(config::unlockKeyHex);
+  bool validKey = key.length() == 64;
+  for (size_t i = 0; validKey && i < key.length(); ++i) {
+    const char c = key[i];
+    validKey = (c >= '0' && c <= '9') ||
+        (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  }
+  if (!validKey) {
+    Serial.println("App pairing key: unavailable; configure LOCKLINK_UNLOCK_KEY_HEX");
+    return;
+  }
+
+  Serial.print("App pairing key: ");
+  if (key.equalsIgnoreCase(
+      "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4")) {
+    Serial.println("1234");
+  } else {
+    // The app accepts a configured 64-character hex key directly.
+    Serial.println(key);
+  }
+}
+
 void addCorsHeaders() {
   if (config::relayEnabled) {
     const String origin = server.header("Origin");
@@ -122,8 +148,7 @@ void loop() {
     if (!serverStarted) {
       server.begin();
       serverStarted = true;
-      Serial.print("LockLink ready at http://");
-      Serial.println(WiFi.localIP());
+      logConnectionDetails();
     }
     server.handleClient();
   } else if (serverStarted) {
