@@ -7,6 +7,18 @@ import 'package:locklink/services/device_settings.dart';
 import 'package:locklink/services/locklink_api_service.dart';
 
 void main() {
+  test('derives the demo signing key while preserving existing hex keys', () {
+    expect(
+      DeviceSettings.signingKey('1234'),
+      '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
+    );
+    const existingKey =
+        '000102030405060708090a0b0c0d0e0f'
+        '101112131415161718191a1b1c1d1e1f';
+    expect(DeviceSettings.signingKey(existingKey.toUpperCase()), existingKey);
+    expect(() => DeviceSettings.signingKey(''), throwsFormatException);
+  });
+
   test('accepts LAN address and rejects public or secure URL', () {
     expect(
       DeviceSettings.normalizeAddress(' http://192.168.1.50/ '),

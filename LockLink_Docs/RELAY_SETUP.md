@@ -41,15 +41,23 @@ a meter and no lock connected before applying 12 V.
 
 1. Copy `LockLink_IoT/include/private_config.example.h` to
    `include/private_config.h` if needed. The private file is gitignored.
-2. Generate a random key with
+2. The supplied configuration matches the app's default pairing value `1234`.
+   To replace it, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
-   Put it in `LOCKLINK_UNLOCK_KEY_HEX`, and set
+   Put it in `LOCKLINK_UNLOCK_KEY_HEX` and app settings. Set
    `LOCKLINK_RELAY_ENABLED 1`. Keep GPIO 2 and active-HIGH for DFR0473.
 3. Flash the firmware. Serial Monitor must report the relay output and must
    **not** say `Relay NOT armed`.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
    Unlock sends a signed command and pulses the relay for two seconds.
+
+The app starts with `192.168.0.111` and `1234` when no values have been saved.
+For a different 4–64 character text pairing value, set `LOCKLINK_UNLOCK_KEY_HEX`
+to its SHA-256 hex digest and enter the original text in the app. A 64-character
+hex key is used directly, without hashing. Changing firmware configuration
+requires rebuilding and flashing the ESP32; saving app settings does not
+change the device's key or IP address.
 
 An empty or invalid firmware key leaves the relay unarmed, even if relay mode
 was enabled. The old unauthenticated LED command cannot actuate the relay.

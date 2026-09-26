@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../screens/home_screen.dart';
+import '../services/device_settings.dart';
 
-class LockLinkApp extends StatelessWidget {
-  const LockLinkApp({super.key});
+class LockLinkApp extends StatefulWidget {
+  const LockLinkApp({
+    super.key,
+    required this.settings,
+    this.initialThemeMode = ThemeMode.system,
+  });
+
+  final DeviceSettings settings;
+  final ThemeMode initialThemeMode;
+
+  @override
+  State<LockLinkApp> createState() => _LockLinkAppState();
+}
+
+class _LockLinkAppState extends State<LockLinkApp> {
+  late final _themeMode = ValueNotifier(widget.initialThemeMode);
+
+  @override
+  void dispose() {
+    _themeMode.dispose();
+    super.dispose();
+  }
 
   ThemeData _theme(Brightness brightness) {
     final baseScheme = ColorScheme.fromSeed(
@@ -30,9 +51,8 @@ class LockLinkApp extends StatelessWidget {
             surfaceContainerLow: Colors.white,
             surfaceContainerHighest: const Color(0xFFE8E8E8),
           );
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme,
+    final baseTheme = ThemeData(useMaterial3: true, colorScheme: scheme);
+    return baseTheme.copyWith(
       scaffoldBackgroundColor: scheme.surface,
       cardTheme: CardThemeData(
         color: scheme.surfaceContainerLow,
@@ -45,19 +65,25 @@ class LockLinkApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: baseTheme.textTheme.labelLarge?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'LockLink',
-    debugShowCheckedModeBanner: false,
-    themeMode: ThemeMode.system,
-    theme: _theme(Brightness.light),
-    darkTheme: _theme(Brightness.dark),
-    home: const HomeScreen(),
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: _themeMode,
+    builder: (context, mode, child) => MaterialApp(
+      title: 'LockLink',
+      debugShowCheckedModeBanner: false,
+      themeMode: mode,
+      theme: _theme(Brightness.light),
+      darkTheme: _theme(Brightness.dark),
+      home: HomeScreen(settings: widget.settings, themeMode: _themeMode),
+    ),
   );
 }

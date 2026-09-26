@@ -7,15 +7,23 @@ import '../services/app_haptics.dart';
 import '../services/device_settings.dart';
 import '../services/locklink_api_service.dart';
 import '../widgets/door_control_card.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    required this.settings,
+    required this.themeMode,
+  });
+
+  final DeviceSettings settings;
+  final ValueNotifier<ThemeMode> themeMode;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final DeviceSettings _settings = DeviceSettings();
+  DeviceSettings get _settings => widget.settings;
   final AppHaptics _haptics = AppHaptics();
   LockLinkApiService? _api;
   Timer? _pollTimer;
@@ -48,18 +56,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final address = await _settings.loadAddress();
     if (!mounted) return;
     _connect(address);
-    if (address != null) {
-      _unlockKey = await _settings.loadUnlockKey(address);
-      if (!mounted) return;
-    }
+    _unlockKey = await _settings.loadUnlockKey(address);
+    if (!mounted) return;
     setState(() => _loading = false);
-    if (address != null) await _refresh();
+    await _refresh();
   }
 
   void _connect(String? address) {
     _api?.close();
     _address = address;
     _api = address == null ? null : LockLinkApiService(address);
+    _checking = false;
     _online = false;
     _relayMode = false;
     _armed = true;
@@ -95,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _online = false);
       if (userInitiated) _haptics.error();
     } finally {
-      _checking = false;
+      if (api == _api) _checking = false;
     }
   }
 
@@ -156,144 +163,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _editAddress() async {
     _haptics.tap();
-    final controller = TextEditingController(
-      text: _address ?? 'http://192.168.1.',
-    );
-    final keyController = TextEditingController();
-    String? error;
-    String? keyError;
-    bool savingHaptics = false;
-    String? hapticsError;
-    void submit(BuildContext dialogContext, StateSetter update) {
-      final address = DeviceSettings.normalizeAddress(controller.text);
-      final key = keyController.text.trim();
-      update(() {
-        error = address == null ? 'Use a local http:// address' : null;
-        keyError = key.isNotEmpty && !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(key)
-            ? 'Use a 64-character hex key'
-            : null;
-      });
-      if (address != null && keyError == null) {
-        Navigator.pop(dialogContext, (address: address, key: key));
-      } else {
-        _haptics.error();
-      }
-    }
-
-    final result = await showDialog<({String address, String key})>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('Connect your device'),
-          scrollable: true,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter the ESP32 address shown in its serial monitor. Your phone and device must share the same Wi-Fi.',
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.url,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Device address',
-                  hintText: 'http://192.168.1.50',
-                  errorText: error,
-                  border: const OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => submit(dialogContext, update),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: keyController,
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                decoration: InputDecoration(
-                  labelText: 'Pairing key for relay',
-                  hintText: 'Leave blank to keep saved key',
-                  errorText: keyError,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              if (AppHaptics.supported) ...[
-                const SizedBox(height: 16),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Haptic feedback'),
-                  subtitle: const Text(
-                    'Vibrate for taps and action results. Saved automatically.',
-                  ),
-                  value: _haptics.enabled,
-                  onChanged: _loading || savingHaptics
-                      ? null
-                      : (enabled) async {
-                          final previous = _haptics.enabled;
-                          update(() {
-                            savingHaptics = true;
-                            hapticsError = null;
-                            _haptics.enabled = enabled;
-                          });
-                          _haptics.selection();
-                          try {
-                            await _settings.saveHapticsEnabled(enabled);
-                          } catch (_) {
-                            _haptics.enabled = previous;
-                            hapticsError = 'Could not save. Try again.';
-                          } finally {
-                            if (context.mounted) {
-                              update(() => savingHaptics = false);
-                            }
-                          }
-                        },
-                ),
-                if (hapticsError != null)
-                  Text(
-                    hapticsError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => submit(dialogContext, update),
-              child: const Text('Save address'),
-            ),
-          ],
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(
+          settings: _settings,
+          haptics: _haptics,
+          themeMode: widget.themeMode,
         ),
       ),
     );
-    controller.dispose();
-    keyController.dispose();
-    if (result == null || !mounted) return;
+    if (changed != true || !mounted) return;
     try {
-      await _settings.saveAddress(result.address);
-      if (result.key.isNotEmpty) {
-        await _settings.saveUnlockKey(result.address, result.key);
-      }
-      final savedKey = await _settings.loadUnlockKey(result.address);
+      final address = await _settings.loadAddress();
+      final savedKey = await _settings.loadUnlockKey(address);
       if (!mounted) return;
       setState(() {
-        _connect(result.address);
+        _connect(address);
         _unlockKey = savedKey;
       });
-      _haptics.success();
-      _showMessage('Device settings saved.');
       await _refresh();
     } catch (_) {
-      if (!mounted) return;
-      _haptics.error();
-      _showMessage('Could not save device settings. Please try again.');
+      if (mounted) {
+        _showMessage('Could not load device settings. Please try again.');
+      }
     }
   }
 

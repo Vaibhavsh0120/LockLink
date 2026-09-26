@@ -12,7 +12,6 @@ WebServer server(config::serverPort);
 uint32_t lastWifiAttemptMs = 0;
 bool wifiAttempted = false;
 bool serverStarted = false;
-uint32_t lastStatusLogMs = 0;
 
 void addCorsHeaders() {
   if (config::relayEnabled) {
@@ -131,18 +130,6 @@ void loop() {
     server.stop();
     serverStarted = false;
     Serial.println("Wi-Fi lost; retrying");
-  }
-  // Monitor may open after boot; repeat the connection details for diagnostics.
-  if (uint32_t(nowMs - lastStatusLogMs) >= 15000) {
-    lastStatusLogMs = nowMs;
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.print("LockLink online at http://");
-      Serial.print(WiFi.localIP());
-    } else {
-      Serial.print("LockLink offline");
-    }
-    Serial.println(lockOutput.isUnlocking() ? " | unlock pulse active"
-        : " | output inactive");
   }
   delay(2);
 }

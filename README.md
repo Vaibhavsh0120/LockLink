@@ -24,9 +24,13 @@ can pulse a power-to-unlock 12 V lock for two seconds.
 4. On the same Wi-Fi, run `curl http://DEVICE_IP/status` and
    `curl -X POST http://DEVICE_IP/unlock`. The LED should turn on, then off
    after about two seconds.
-5. In `LockLink_App`, run `flutter run`. Open device settings in the app and
-   enter the ESP32 address shown by the serial monitor. The address is saved
-   locally on this device.
+5. In `LockLink_App`, run `flutter run`. Settings starts with device address
+   `192.168.0.111` and pairing key `1234`. Existing saved values take precedence.
+   Change the address if the ESP32 reports a different one, then tap **Save device**.
+
+Settings has Light, Dark, and System appearance modes and a haptic feedback
+switch on Android/iOS. These preferences save automatically. System is the
+default appearance mode and follows the phone's theme.
 
 The app polls status every ten seconds and times out requests after four seconds.
 It disables Unlock while the device is offline or a pulse is active.
@@ -34,8 +38,12 @@ It disables Unlock while the device is offline or a pulse is active.
 ## Real lock
 
 Read [relay setup](LockLink_Docs/RELAY_SETUP.md) before connecting the lock.
-Relay mode requires an explicit firmware switch and a private 64-character
-pairing key. Enter the same key once in the app's device settings. Unlock then
+Relay mode requires an explicit firmware switch and a matching pairing key.
+The default firmware signing key is SHA-256 of `1234`, matching the app's
+default. The app accepts a 4–64 character pairing value and derives its signing
+key with SHA-256; an existing 64-character hexadecimal key is used directly.
+To change a text pairing value manually, put its SHA-256 hex digest into
+`LOCKLINK_UNLOCK_KEY_HEX` and the original value into app settings. Unlock then
 requests a fresh one-time challenge automatically; there is no code to type
 for each use. On Android/iOS the key is stored in platform secure storage.
 The web app keeps it only until the tab closes.
