@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/door_status.dart';
+import '../services/app_haptics.dart';
 import '../services/device_settings.dart';
 import '../services/locklink_api_service.dart';
 import '../widgets/door_control_card.dart';
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final DeviceSettings _settings = DeviceSettings();
+  final AppHaptics _haptics = AppHaptics();
   LockLinkApiService? _api;
   Timer? _pollTimer;
   String? _address;
@@ -35,6 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initialize() async {
+    var hapticsEnabled = false;
+    try {
+      hapticsEnabled = await _settings.loadHapticsEnabled();
+    } catch (_) {
+      // An optional feedback preference must not prevent device control.
+    }
+    if (!mounted) return;
+    _haptics.enabled = hapticsEnabled;
     final address = await _settings.loadAddress();
     if (!mounted) return;
     _connect(address);
@@ -65,10 +75,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool userInitiated = false}) async {
     final api = _api;
     if (api == null || _checking || _unlocking) return;
     _checking = true;
+    if (userInitiated) _haptics.tap();
     try {
       final DoorStatus status = await api.getStatus();
       if (!mounted || api != _api) return;
@@ -78,9 +89,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _relayMode = status.mode == 'relay';
         _armed = status.armed;
       });
+      if (userInitiated && !status.online) _haptics.error();
     } catch (_) {
       if (!mounted || api != _api) return;
       setState(() => _online = false);
+      if (userInitiated) _haptics.error();
     } finally {
       _checking = false;
     }
@@ -92,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     setState(() => _unlocking = true);
+    _haptics.tap();
     try {
       final duration = await api.unlockDoor(
         relayMode: _relayMode,
@@ -99,9 +113,19 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (!mounted || api != _api) return;
       setState(() => _pairingError = false);
+      // The device accepted the command; this is not a door-sensor reading.
+      _haptics.success();
       await Future<void>.delayed(duration);
     } on DeviceException catch (error) {
       if (mounted && api == _api) {
+        _haptics.error();
+        _showMessage(
+          error.statusCode == 401
+              ? 'Pairing key rejected. Update it in device settings.'
+              : error.statusCode == 409
+              ? 'The device is already unlocking. Try again shortly.'
+              : 'Could not unlock. Check your device and try again.',
+        );
         if (error.statusCode == 401) {
           setState(() => _pairingError = true);
         } else if (error.statusCode == 503) {
@@ -112,6 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (_) {
       if (mounted && api == _api) {
+        _haptics.error();
+        _showMessage('Could not unlock. Check your device and try again.');
         setState(() => _online = false);
       }
     } finally {
@@ -122,13 +148,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _editAddress() async {
+    _haptics.tap();
     final controller = TextEditingController(
       text: _address ?? 'http://192.168.1.',
     );
     final keyController = TextEditingController();
     String? error;
     String? keyError;
+    bool savingHaptics = false;
+    String? hapticsError;
     void submit(BuildContext dialogContext, StateSetter update) {
       final address = DeviceSettings.normalizeAddress(controller.text);
       final key = keyController.text.trim();
@@ -140,6 +175,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       if (address != null && keyError == null) {
         Navigator.pop(dialogContext, (address: address, key: key));
+      } else {
+        _haptics.error();
       }
     }
 
@@ -182,6 +219,45 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: const OutlineInputBorder(),
                 ),
               ),
+              if (AppHaptics.supported) ...[
+                const SizedBox(height: 16),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Haptic feedback'),
+                  subtitle: const Text(
+                    'Vibrate for taps and action results. Saved automatically.',
+                  ),
+                  value: _haptics.enabled,
+                  onChanged: _loading || savingHaptics
+                      ? null
+                      : (enabled) async {
+                          final previous = _haptics.enabled;
+                          update(() {
+                            savingHaptics = true;
+                            hapticsError = null;
+                            _haptics.enabled = enabled;
+                          });
+                          _haptics.selection();
+                          try {
+                            await _settings.saveHapticsEnabled(enabled);
+                          } catch (_) {
+                            _haptics.enabled = previous;
+                            hapticsError = 'Could not save. Try again.';
+                          } finally {
+                            if (context.mounted) {
+                              update(() => savingHaptics = false);
+                            }
+                          }
+                        },
+                ),
+                if (hapticsError != null)
+                  Text(
+                    hapticsError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+              ],
             ],
           ),
           actions: [
@@ -200,21 +276,30 @@ class _HomeScreenState extends State<HomeScreen> {
     controller.dispose();
     keyController.dispose();
     if (result == null || !mounted) return;
-    await _settings.saveAddress(result.address);
-    if (result.key.isNotEmpty) {
-      await _settings.saveUnlockKey(result.address, result.key);
+    try {
+      await _settings.saveAddress(result.address);
+      if (result.key.isNotEmpty) {
+        await _settings.saveUnlockKey(result.address, result.key);
+      }
+      final savedKey = await _settings.loadUnlockKey(result.address);
+      if (!mounted) return;
+      setState(() {
+        _connect(result.address);
+        _unlockKey = savedKey;
+      });
+      _haptics.success();
+      _showMessage('Device settings saved.');
+      await _refresh();
+    } catch (_) {
+      if (!mounted) return;
+      _haptics.error();
+      _showMessage('Could not save device settings. Please try again.');
     }
-    final savedKey = await _settings.loadUnlockKey(result.address);
-    if (!mounted) return;
-    setState(() {
-      _connect(result.address);
-      _unlockKey = savedKey;
-    });
-    await _refresh();
   }
 
   @override
   void dispose() {
+    _haptics.enabled = false;
     _pollTimer?.cancel();
     _api?.close();
     super.dispose();
@@ -310,12 +395,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Spacer(),
                             IconButton(
                               tooltip: 'Check connection',
-                              onPressed: _address == null ? null : _refresh,
+                              onPressed: _address == null || _loading
+                                  ? null
+                                  : () => _refresh(userInitiated: true),
                               icon: const Icon(Icons.refresh_rounded),
                             ),
                             IconButton(
                               tooltip: 'Device settings',
-                              onPressed: _editAddress,
+                              onPressed: _loading ? null : _editAddress,
                               icon: const Icon(Icons.tune_rounded),
                             ),
                           ],

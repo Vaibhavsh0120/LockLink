@@ -7,6 +7,7 @@ class DeviceSettings {
     : _preferences = preferences ?? SharedPreferencesAsync();
 
   static const _addressKey = 'device_address';
+  static const _hapticsKey = 'haptic_feedback_enabled';
   static const _secureStorage = FlutterSecureStorage();
   final SharedPreferencesAsync _preferences;
   final Map<String, String> _webSessionKeys = {};
@@ -14,6 +15,11 @@ class DeviceSettings {
   Future<String?> loadAddress() => _preferences.getString(_addressKey);
   Future<void> saveAddress(String address) =>
       _preferences.setString(_addressKey, address);
+
+  Future<bool> loadHapticsEnabled() async =>
+      await _preferences.getBool(_hapticsKey) ?? true;
+  Future<void> saveHapticsEnabled(bool enabled) =>
+      _preferences.setBool(_hapticsKey, enabled);
 
   Future<String?> loadUnlockKey(String address) async {
     if (kIsWeb) return _webSessionKeys[address];
