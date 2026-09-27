@@ -63,6 +63,9 @@ wait five seconds. Polling pauses in the background and in device settings;
 returning refreshes the state immediately. Matter and the app control the same
 output. Network delays and each platform's refresh behavior still apply.
 It disables Unlock while the device is offline or a pulse is active.
+After returning to the app, control waits for a fresh status response. See
+[offline behavior and recovery](LockLink_Docs/OFFLINE_BEHAVIOR.md) for power loss,
+network changes, unconfirmed commands, widgets and first-time setup.
 
 ## Real lock
 

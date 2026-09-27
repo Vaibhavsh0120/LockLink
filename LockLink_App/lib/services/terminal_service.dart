@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/matter_pairing_payload.dart';
+import 'device_request.dart';
 
 class TerminalReply {
   const TerminalReply({
@@ -153,9 +154,12 @@ class TerminalService {
       throw const TerminalException('Check the pairing key in Settings.');
     }
     try {
-      final challenge = await _client
-          .get(Uri.parse('$address/terminal/challenge'))
-          .timeout(_timeout);
+      final challenge = await deviceRequest(
+        _client,
+        'GET',
+        Uri.parse('$address/terminal/challenge'),
+        timeout: _timeout,
+      );
       _check(challenge);
       final data = jsonDecode(challenge.body);
       if (data is! Map ||
@@ -171,28 +175,29 @@ class TerminalService {
       final signature = Hmac(sha256, bytes)
           .convert(utf8.encode('terminal:$after:$boot:$normalized:$nonce'))
           .toString();
-      final response = await _client
-          .post(
-            Uri.parse('$address/terminal')
-                .replace(queryParameters: {'after': '$after', 'boot': boot}),
-            headers: {
-              'Content-Type': 'text/plain',
-              'X-LockLink-Nonce': nonce,
-              'X-LockLink-Signature': signature,
-            },
-            body: normalized,
-          )
-          .timeout(_timeout);
+      final response = await deviceRequest(
+        _client,
+        'POST',
+        Uri.parse('$address/terminal')
+            .replace(queryParameters: {'after': '$after', 'boot': boot}),
+        headers: {
+          'Content-Type': 'text/plain',
+          'X-LockLink-Nonce': nonce,
+          'X-LockLink-Signature': signature,
+        },
+        body: normalized,
+        timeout: _timeout,
+      );
       _check(response);
       return TerminalReply.fromJson(jsonDecode(response.body));
     } on TimeoutException {
       throw const TerminalException(
-        'Device did not reply. Check Wi-Fi and power.',
+        'Device did not reply. Check power, Wi-Fi and address.',
         retryable: true,
       );
     } on http.ClientException {
       throw const TerminalException(
-        'Cannot reach device. Check Wi-Fi and address.',
+        'Cannot reach device. Check power, Wi-Fi and address.',
         retryable: true,
       );
     }

@@ -57,6 +57,89 @@ void main() {
   bool active(WidgetTester tester) =>
       tester.widget<DoorControlCard>(find.byType(DoorControlCard)).active;
 
+  testWidgets('offline recovers without replaying an unconfirmed unlock', (
+    tester,
+  ) async {
+    var reachable = false;
+    var commands = 0;
+    await runApp(
+      tester,
+      (request) async {
+        if (request.method == 'POST') {
+          commands++;
+          reachable = false;
+          throw TimeoutException('reply lost');
+        }
+        if (!reachable) throw http.ClientException('unreachable');
+        return status(false);
+      },
+      () async {
+        expect(find.text('Offline'), findsOneWidget);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        reachable = true;
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.byType(FilledButton));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('No confirmation. Check the device before retrying.'),
+          findsOneWidget,
+        );
+        expect(find.text('Offline'), findsOneWidget);
+        reachable = true;
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        expect(commands, 1);
+        expect(
+          tester.widget<DoorControlCard>(find.byType(DoorControlCard)).online,
+          isTrue,
+        );
+      },
+    );
+  });
+
+  testWidgets('resume disables control until a fresh status reply arrives', (
+    tester,
+  ) async {
+    final pending = Completer<http.Response>();
+    var reads = 0;
+    await runApp(
+      tester,
+      (_) async {
+        if (++reads == 1) return status(false);
+        return pending.future;
+      },
+      () async {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(
+          tester.widget<DoorControlCard>(find.byType(DoorControlCard)).online,
+          isFalse,
+        );
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        pending.complete(status(false));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<DoorControlCard>(find.byType(DoorControlCard)).online,
+          isTrue,
+        );
+      },
+    );
+  });
+
   testWidgets('external release and early Off follow device within one poll', (
     tester,
   ) async {

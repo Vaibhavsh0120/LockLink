@@ -22,7 +22,7 @@ object GateClient {
 
     fun unlock(config: GateConfig, canSend: () -> Boolean): String {
         val status = request(config.address, "/status")
-        if (!status.optBoolean("online", false)) throw GateFailure("Device offline. Check Wi-Fi.")
+        if (!status.optBoolean("online", false)) throw GateFailure("Device offline. Check power and Wi-Fi.")
         if (status.optString("state") == "unlocking") throw GateFailure("Gate is already unlocking.")
         val headers = mutableMapOf<String, String>()
         when (status.optString("mode", "led")) {

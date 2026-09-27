@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/door_status.dart';
+import 'device_request.dart';
 
 class LockLinkApiService {
   LockLinkApiService(this.baseUrl, {http.Client? client})
@@ -14,9 +15,12 @@ class LockLinkApiService {
   static const timeout = Duration(seconds: 4);
 
   Future<DoorStatus> getStatus() async {
-    final response = await _client
-        .get(Uri.parse('$baseUrl/status'))
-        .timeout(timeout);
+    final response = await deviceRequest(
+      _client,
+      'GET',
+      Uri.parse('$baseUrl/status'),
+      timeout: timeout,
+    );
     if (response.statusCode != 200) {
       throw DeviceException('Device returned ${response.statusCode}');
     }
@@ -37,9 +41,12 @@ class LockLinkApiService {
           !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(unlockKeyHex)) {
         throw const DeviceException('Pairing key required');
       }
-      final challengeResponse = await _client
-          .get(Uri.parse('$baseUrl/challenge'))
-          .timeout(timeout);
+      final challengeResponse = await deviceRequest(
+        _client,
+        'GET',
+        Uri.parse('$baseUrl/challenge'),
+        timeout: timeout,
+      );
       if (challengeResponse.statusCode != 200) {
         throw DeviceException(
           'Challenge failed',
@@ -64,9 +71,13 @@ class LockLinkApiService {
       headers['X-LockLink-Nonce'] = nonce;
       headers['X-LockLink-Signature'] = signature;
     }
-    final response = await _client
-        .post(Uri.parse('$baseUrl/unlock'), headers: headers)
-        .timeout(timeout);
+    final response = await deviceRequest(
+      _client,
+      'POST',
+      Uri.parse('$baseUrl/unlock'),
+      headers: headers,
+      timeout: timeout,
+    );
     if (response.statusCode == 401) {
       throw const DeviceException('Pairing key rejected', statusCode: 401);
     }

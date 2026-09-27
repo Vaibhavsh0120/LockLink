@@ -76,6 +76,154 @@ void main() {
     200,
   );
 
+  for (final terminal in [false, true]) {
+    testWidgets(
+      '${terminal ? 'Terminal' : 'Setup'} waits for device and recovers without a queued command',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var reachable = false;
+        final commands = <String>[];
+        await http.runWithClient(
+          () async {
+            final settings = DeviceSettings(preferences: MemoryPreferences());
+            await tester.pumpWidget(
+              RepaintBoundary(
+                key: const Key('capture'),
+                child: MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.build(Brightness.dark),
+                  home: terminal
+                      ? TerminalScreen(settings: settings)
+                      : HomeSetupScreen(
+                          settings: settings,
+                          ecosystem: HomeEcosystem.apple,
+                        ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            await capture(
+              tester,
+              terminal ? 'terminal-offline' : 'setup-offline',
+            );
+            if (terminal) {
+              expect(
+                tester
+                    .widget<IconButton>(
+                      find.byWidgetPredicate(
+                        (widget) =>
+                            widget is IconButton &&
+                            widget.tooltip == 'Send command',
+                      ),
+                    )
+                    .onPressed,
+                isNull,
+              );
+            } else {
+              expect(
+                tester
+                    .widget<FilledButton>(
+                      find.widgetWithText(FilledButton, 'Get setup code'),
+                    )
+                    .onPressed,
+                isNull,
+              );
+              expect(find.text('Retry connection'), findsOneWidget);
+            }
+            reachable = true;
+            await tester.pump(const Duration(seconds: 5));
+            await tester.pumpAndSettle();
+            expect(commands, ['']);
+            if (terminal) {
+              expect(
+                tester
+                    .widget<IconButton>(
+                      find.byWidgetPredicate(
+                        (widget) =>
+                            widget is IconButton &&
+                            widget.tooltip == 'Send command',
+                      ),
+                    )
+                    .onPressed,
+                isNotNull,
+              );
+            } else {
+              expect(
+                tester
+                    .widget<FilledButton>(
+                      find.widgetWithText(FilledButton, 'Get setup code'),
+                    )
+                    .onPressed,
+                isNotNull,
+              );
+            }
+            expect(find.byType(QrImageView), findsNothing);
+            await tester.pumpWidget(const SizedBox.shrink());
+          },
+          () => MockClient((request) async {
+            if (!reachable) throw http.ClientException('device off');
+            if (request.url.path.endsWith('/challenge')) {
+              return http.Response(
+                '{"nonce":"00112233445566778899aabbccddeeff"}',
+                200,
+              );
+            }
+            commands.add(request.body);
+            return reply(request.body);
+          }),
+        );
+      },
+    );
+  }
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'home app choices stay separate and responsive in $brightness',
+      (tester) async {
+        for (final size in [
+          const Size(390, 844),
+          const Size(1440, 960),
+          const Size(320, 740),
+        ]) {
+          await tester.binding.setSurfaceSize(size);
+          tester.platformDispatcher.textScaleFactorTestValue = size.width == 320
+              ? 2
+              : 1;
+          await tester.pumpWidget(
+            RepaintBoundary(
+              key: const Key('capture'),
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.build(brightness),
+                home: SmartHomeScreen(
+                  settings: DeviceSettings(preferences: MemoryPreferences()),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final apple = tester.getRect(
+            find.widgetWithText(ListTile, 'Apple Home'),
+          );
+          final google = tester.getRect(
+            find.widgetWithText(ListTile, 'Google Home'),
+          );
+          expect(google.top - apple.bottom, greaterThanOrEqualTo(12));
+          expect(apple.width, lessThanOrEqualTo(600));
+          expect(tester.takeException(), isNull);
+          await capture(
+            tester,
+            'home-picker-${brightness.name}-${size.width.toInt()}',
+          );
+        }
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        await tester.binding.setSurfaceSize(null);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   for (final size in [const Size(390, 844), const Size(1440, 960)]) {
     testWidgets('terminal sends typed commands and pauses offscreen at $size', (
       tester,

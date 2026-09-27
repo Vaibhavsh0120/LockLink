@@ -29,7 +29,7 @@ actor GateWidgetClient {
             let config = try GateWidgetStore.load()
             let status = try await request(session, config: config, path: "/status")
             guard status["online"] as? Bool == true else {
-                throw GateWidgetError.message("Device offline. Check Wi-Fi.")
+                throw GateWidgetError.message("Device offline. Check power and Wi-Fi.")
             }
             guard status["state"] as? String != "unlocking" else {
                 throw GateWidgetError.message("Gate is already unlocking.")
@@ -77,7 +77,7 @@ actor GateWidgetClient {
         } catch let error as GateWidgetError {
             return error.text
         } catch {
-            return "Cannot reach device. Check Wi-Fi and settings."
+            return "Cannot reach device. Check power, Wi-Fi and address."
         }
     }
 

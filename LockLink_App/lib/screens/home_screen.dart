@@ -8,6 +8,7 @@ import '../services/device_settings.dart';
 import '../services/locklink_api_service.dart';
 import '../services/widget_bridge.dart';
 import '../widgets/door_control_card.dart';
+import '../widgets/device_connection_help.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _settingsOpen = false;
   int _statusGeneration = 0;
   bool _online = false;
+  bool _hasChecked = false;
   bool _unlocking = false;
   bool _relayMode = false;
   bool _armed = true;
@@ -57,6 +59,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _foreground = state == AppLifecycleState.resumed;
     _statusGeneration++;
     _pollTimer?.cancel();
+    setState(() {
+      _online = false;
+      _hasChecked = false;
+    });
     if (_foreground && !_loading) unawaited(_refresh());
   }
 
@@ -111,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _userChecking = false;
     _unlocking = false;
     _online = false;
+    _hasChecked = false;
     _relayMode = false;
     _armed = true;
     _pairingError = false;
@@ -134,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final DoorStatus status = await api.getStatus();
       if (!mounted || api != _api || generation != _statusGeneration) return;
       setState(() {
+        _hasChecked = true;
         _online = status.online;
         _deviceState = status.state;
         _relayMode = status.mode == 'relay';
@@ -142,7 +150,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (userInitiated && !status.online) _haptics.error();
     } catch (_) {
       if (!mounted || api != _api || generation != _statusGeneration) return;
-      setState(() => _online = false);
+      setState(() {
+        _online = false;
+        _hasChecked = true;
+      });
       if (userInitiated) _haptics.error();
     } finally {
       if (mounted && api == _api) {
@@ -193,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted && api == _api) {
         _haptics.error();
-        _showMessage('Could not unlock. Check your device and try again.');
+        _showMessage('No confirmation. Check the device before retrying.');
         setState(() => _online = false);
       }
     } finally {
@@ -226,6 +237,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     _settingsOpen = false;
     if (!mounted) return;
+    setState(() {
+      _online = false;
+      _hasChecked = false;
+    });
     if (changed != true) {
       await _refresh();
       return;
@@ -286,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final helperText = _address == null
         ? 'Add device address'
         : !_online
-        ? 'Check your device and Wi-Fi.'
+        ? 'Power on the ESP32 and use the same Wi-Fi.'
         : _relayMode && !_armed
         ? 'Set a pairing key on your device.'
         : _pairingError
@@ -345,9 +360,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         online: _online,
                         ready: ready,
                         active: active,
-                        stateLabel: _loading ? 'Connecting…' : stateLabel,
-                        statusText: _loading ? 'Connecting' : statusText,
-                        helperText: _loading ? null : helperText,
+                        stateLabel: _loading
+                            ? 'Connecting…'
+                            : !_hasChecked && _address != null
+                            ? 'Checking connection…'
+                            : stateLabel,
+                        statusText: _loading || !_hasChecked
+                            ? 'Connecting'
+                            : statusText,
+                        helperText: _loading || !_hasChecked
+                            ? null
+                            : helperText,
                         onUnlock: ready ? _unlock : null,
                         compact: compact,
                       ),
@@ -398,6 +421,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             onTap: _editAddress,
                           ),
                         ),
+                      if (!_loading && _hasChecked && !_online) ...[
+                        const SizedBox(height: 12),
+                        const DeviceConnectionHelp(),
+                      ],
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,

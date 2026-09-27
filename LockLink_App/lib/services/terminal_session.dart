@@ -58,6 +58,8 @@ class TerminalSession extends ChangeNotifier {
     _active = value;
     _timer?.cancel();
     if (!value) {
+      connected = false;
+      latest = null;
       _hideCode();
       notifyListeners();
     }
@@ -104,8 +106,8 @@ class TerminalSession extends ChangeNotifier {
       if (reply.gap) lines.add('Earlier device logs are no longer available.');
       _boot = reply.boot;
       _cursor = reply.cursor;
-      latest = reply.withoutPairingSecrets();
       final current = _active && pairingEpoch == _pairingEpoch;
+      latest = current ? reply.withoutPairingSecrets() : null;
       if (normalized == 'PAIR') {
         final canPair = current && reply.ok && !reply.commissioned;
         pairingCode = canPair ? reply.pairingCode : null;
@@ -116,13 +118,14 @@ class TerminalSession extends ChangeNotifier {
       if (reply.commissioned || !current) {
         _hideCode();
       }
-      connected = true;
+      connected = current;
       error = null;
       // Obsolete replies must not continue a guide's STATUS → PAIR sequence.
       return current ? reply : null;
     } catch (e) {
       if (_disposed) return null;
       connected = false;
+      latest = null;
       _hideCode();
       error = e is TerminalException
           ? e.message

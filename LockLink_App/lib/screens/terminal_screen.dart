@@ -72,7 +72,7 @@ class _TerminalScreenState extends State<TerminalScreen>
 
   Future<void> _send([String? command]) async {
     final value = command ?? _command.text;
-    if (value.trim().isEmpty || _session.busy) return;
+    if (value.trim().isEmpty || _session.busy || !_session.connected) return;
     final result = await _session.send(value);
     if (mounted && result != null && command == null) _command.clear();
   }
@@ -110,6 +110,7 @@ class _TerminalScreenState extends State<TerminalScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final canSend = _session.connected && !_session.busy;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Terminal'),
@@ -243,7 +244,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                           alignment: Alignment.centerLeft,
                           child: PopupMenuButton<String>(
                             tooltip: 'Choose command',
-                            enabled: !_session.busy,
+                            enabled: canSend,
                             onSelected: _send,
                             itemBuilder: (_) => const [
                               PopupMenuItem(
@@ -259,13 +260,23 @@ class _TerminalScreenState extends State<TerminalScreen>
                                 child: Text('PAIR · Setup code'),
                               ),
                             ],
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text('Commands'),
-                                  Icon(Icons.expand_more_rounded),
+                                  Text(
+                                    'Commands',
+                                    style: TextStyle(
+                                      color: canSend
+                                          ? null
+                                          : theme.disabledColor,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.expand_more_rounded,
+                                    color: canSend ? null : theme.disabledColor,
+                                  ),
                                 ],
                               ),
                             ),
@@ -277,6 +288,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                           children: [
                             Expanded(
                               child: TextField(
+                                enabled: _session.connected,
                                 controller: _command,
                                 maxLength: 64,
                                 autocorrect: false,
@@ -284,7 +296,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                                 textInputAction: TextInputAction.send,
                                 decoration: const InputDecoration(
                                   labelText: 'Command',
-                                  hintText: 'Type HELP',
+                                  hintText: 'Connect, then type HELP',
                                   counterText: '',
                                 ),
                                 onSubmitted: (_) => _send(),
@@ -293,7 +305,9 @@ class _TerminalScreenState extends State<TerminalScreen>
                             const SizedBox(width: 12),
                             IconButton.filled(
                               tooltip: 'Send command',
-                              onPressed: _session.busy ? null : _send,
+                              onPressed: _session.busy || !_session.connected
+                                  ? null
+                                  : _send,
                               icon: const Icon(Icons.arrow_upward_rounded),
                             ),
                           ],

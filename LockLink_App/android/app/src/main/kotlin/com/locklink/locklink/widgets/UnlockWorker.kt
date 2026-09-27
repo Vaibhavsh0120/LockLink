@@ -37,7 +37,7 @@ class UnlockWorker(context: Context, parameters: WorkerParameters) : Worker(cont
         } catch (error: GateFailure) {
             GateWidgetProvider.show(applicationContext, error.displayMessage, announce = true)
         } catch (_: Exception) {
-            GateWidgetProvider.show(applicationContext, "Cannot reach device. Check Wi-Fi and settings.", announce = true)
+            GateWidgetProvider.show(applicationContext, "Cannot reach device. Check power, Wi-Fi and address.", announce = true)
         }
         return Result.success()
     }

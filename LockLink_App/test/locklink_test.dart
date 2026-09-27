@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,47 @@ import 'package:http/testing.dart';
 import 'package:locklink/services/device_settings.dart';
 import 'package:locklink/services/locklink_api_service.dart';
 
+class PendingDeviceClient extends http.BaseClient {
+  var requests = 0;
+  var aborted = false;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if (++requests > 1) {
+      return Future.value(
+        http.StreamedResponse(
+          Stream.value(utf8.encode('{"online":true,"state":"locked"}')),
+          200,
+        ),
+      );
+    }
+    final pending = Completer<http.StreamedResponse>();
+    if (request is http.Abortable) {
+      request.abortTrigger!.then((_) {
+        aborted = true;
+        pending.completeError(http.RequestAbortedException(request.url));
+      });
+    }
+    return pending.future;
+  }
+}
+
 void main() {
+  testWidgets('timed-out device requests abort and the client can reconnect', (
+    tester,
+  ) async {
+    final client = PendingDeviceClient();
+    final api = LockLinkApiService('http://192.168.1.50', client: client);
+    final failure = expectLater(
+      api.unlockDoor(),
+      throwsA(isA<TimeoutException>()),
+    );
+    await tester.pump(LockLinkApiService.timeout);
+    await failure;
+    expect(client.aborted, isTrue);
+    expect((await api.getStatus()).online, isTrue);
+    expect(client.requests, 2);
+    api.close();
+  });
   test('derives the demo signing key while preserving existing hex keys', () {
     expect(
       DeviceSettings.signingKey('1234'),

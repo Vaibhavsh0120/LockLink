@@ -38,3 +38,11 @@ The new default app key applies only when no key has been saved. Existing saved
 keys and the firmware's private configuration are unchanged. The app key is not
 the Matter setup code. See [command and transport plan](../LockLink_Docs/TERMINAL_PLAN.md)
 for protocol details and hardware verification boundaries.
+
+## When the ESP32 is offline
+
+Control, Terminal commands and setup-code generation wait for a fresh device
+connection. Foreground screens retry status automatically; commands are never
+replayed on reconnect. Connection help covers power, Wi-Fi, changed addresses
+and first-time setup over USB. A lost unlock reply means its outcome is unknown.
+See [offline behavior and recovery](../LockLink_Docs/OFFLINE_BEHAVIOR.md).

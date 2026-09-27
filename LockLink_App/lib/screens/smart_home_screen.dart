@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/device_settings.dart';
 import '../services/terminal_session.dart';
 import '../widgets/pairing_code_display.dart';
+import '../widgets/device_connection_help.dart';
 
 enum HomeEcosystem {
   apple(
@@ -42,30 +43,58 @@ class SmartHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Smart home setup')),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        const Text('Optional. Add Door Release to a home app.'),
-        const SizedBox(height: 20),
-        for (final home in HomeEcosystem.values)
-          Card(
-            child: ListTile(
-              leading: Icon(home.icon),
-              title: Text(home.label),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      HomeSetupScreen(settings: settings, ecosystem: home),
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Choose a home app',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ),
+                const SizedBox(height: 8),
+                const Text('Optional setup for Door Release.'),
+                const SizedBox(height: 24),
+                for (final home in HomeEcosystem.values) ...[
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      leading: Icon(home.icon),
+                      title: Text(home.label),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => HomeSetupScreen(
+                            settings: settings,
+                            ecosystem: home,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (home != HomeEcosystem.values.last)
+                    const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 24),
+                const Text('Power on your ESP32 and use the same Wi-Fi.'),
+                const SizedBox(height: 8),
+                const DeviceConnectionHelp(),
+              ],
             ),
           ),
-        const SizedBox(height: 20),
-        const Text(
-          'Keep your phone and ESP32 on the same Wi-Fi. If the ESP32 is offline, connect it first using its configured network or Matter Bluetooth setup.',
         ),
-      ],
+      ),
     ),
   );
 }
@@ -102,7 +131,11 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        if (!_session.connected) _result = null;
+      });
+    }
   }
 
   @override
@@ -112,6 +145,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   }
 
   Future<void> _prepare() async {
+    if (!_session.connected || _session.busy || _preparing) return;
     setState(() {
       _preparing = true;
       _result = null;
@@ -134,6 +168,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   }
 
   Future<void> _check() async {
+    if (!_session.connected) return;
     final status = await _session.send('STATUS');
     if (!mounted || status == null) return;
     setState(
@@ -155,7 +190,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   Widget build(BuildContext context) {
     final home = widget.ecosystem;
     final paired = _session.latest?.commissioned == true;
-    final busy = _session.busy || _preparing;
+    final busy = _session.busy || _preparing || !_session.connected;
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -186,9 +221,23 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
                   Text(home.requirements),
                 ],
                 const SizedBox(height: 20),
-                if (_session.error != null) ...[
-                  Semantics(liveRegion: true, child: Text(_session.error!)),
-                  const SizedBox(height: 12),
+                if (!_session.connected) ...[
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(_session.error ?? 'Connecting to your ESP32…'),
+                  ),
+                  if (_session.error != null) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _session.busy
+                          ? null
+                          : () => _session.send('STATUS'),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry connection'),
+                    ),
+                    const DeviceConnectionHelp(),
+                  ],
+                  const SizedBox(height: 16),
                 ],
                 if (paired) ...[
                   Text('Already paired', style: theme.textTheme.titleLarge),
