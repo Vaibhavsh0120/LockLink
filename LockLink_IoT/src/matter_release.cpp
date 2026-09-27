@@ -6,10 +6,15 @@
 #include <atomic>
 #include <app/CommandHandlerInterface.h>
 #include <app/CommandHandlerInterfaceRegistry.h>
+#include <app/server/Server.h>
+#include <platform/ESP32/NetworkCommissioningDriver.h>
 #include <bootloader_random.h>
 #include <esp_random.h>
 #include <platform/DeviceInstanceInfoProvider.h>
+#include <setup_payload/OnboardingCodesUtil.h>
+#include <setup_payload/QRCodeSetupPayloadGenerator.h>
 #include "config.h"
+#include "device_console.h"
 
 namespace {
 using namespace chip::app::Clusters;
@@ -22,6 +27,50 @@ bool started = false;
 std::atomic<bool> syncPending{false};
 std::atomic<bool> resetting{false};
 uint32_t lastSync = 0;
+
+void seedConfiguredWiFi(intptr_t) {
+  // Called once under the CHIP lock after driver initialization. Never take
+  // over a commissioned device, a saved network, or an in-progress pairing.
+  if (resetting || config::wifiSsid[0] == '\0' || Matter.isDeviceCommissioned() ||
+      chip::Server::GetInstance().GetFailSafeContext().IsFailSafeArmed()) return;
+  wifi_config_t saved = {};
+  if (esp_wifi_get_config(WIFI_IF_STA, &saved) != ESP_OK) {
+    console.println("Wi-Fi setup: cannot read saved network; leaving it unchanged.");
+    return;
+  }
+  if (saved.sta.ssid[0] != '\0') {
+    console.println("Wi-Fi setup: keeping the saved network.");
+    return;
+  }
+  using namespace chip::DeviceLayer::NetworkCommissioning;
+  auto& driver = ESPWiFiDriver::GetInstance();
+  auto* networks = driver.GetNetworks();
+  if (!networks) return;
+  const bool hasNetwork = networks->Count() != 0;
+  networks->Release();
+  if (hasNetwork) return;
+  chip::MutableCharSpan debugText;
+  uint8_t index = 0;
+  const chip::ByteSpan ssid(reinterpret_cast<const uint8_t*>(config::wifiSsid),
+                            sizeof(config::wifiSsid) - 1);
+  const chip::ByteSpan password(reinterpret_cast<const uint8_t*>(config::wifiPassword),
+                                sizeof(config::wifiPassword) - 1);
+  if (driver.AddOrUpdateNetwork(ssid, password, debugText, index) != Status::kSuccess) {
+    console.println("Wi-Fi setup: configured network rejected; Home pairing remains available.");
+    return;
+  }
+  // Use the same driver as Matter commissioning, not Arduino WiFi.begin or
+  // another reconnect loop. This enables CHIP's normal station reconnects.
+  auto err = driver.ConnectWiFiNetwork(config::wifiSsid, ssid.size(),
+                                      config::wifiPassword, password.size());
+  if (err == CHIP_NO_ERROR) err = driver.CommitConfiguration();
+  if (err != CHIP_NO_ERROR) {
+    driver.RevertConfiguration();
+    console.println("Wi-Fi setup failed; Home pairing remains available.");
+    return;
+  }
+  console.println("Wi-Fi setup: configured network saved; connection pending. Use STATUS to check.");
+}
 
 // The SDK exposes startup failure detection to derived implementations.
 struct Lifecycle : ArduinoMatter {
@@ -125,6 +174,50 @@ class ReleaseCommands : public chip::app::CommandHandlerInterface {
 }
 
 namespace matter_release {
+bool commissioned() {
+  if (!started) return false;
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  return Matter.isDeviceCommissioned();
+}
+
+String identity() {
+  uint16_t vendor = 0, product = 0;
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  auto* info = chip::DeviceLayer::GetDeviceInstanceInfoProvider();
+  info->GetVendorId(vendor);
+  info->GetProductId(product);
+  char text[48];
+  snprintf(text, sizeof(text), "Test VID: 0x%04X; PID: 0x%04X", vendor, product);
+  return text;
+}
+
+String preparePairing(String& message, String& qrPayload) {
+  qrPayload = "";
+  if (!started) { message = "Matter unavailable. Restart the device."; return ""; }
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  if (Matter.isDeviceCommissioned()) {
+    message = "Already paired. Get a sharing code from the connected home app.";
+    return "";
+  }
+  auto& window = chip::Server::GetInstance().GetCommissioningWindowManager();
+  if (!window.IsCommissioningWindowOpen() &&
+      window.OpenBasicCommissioningWindow(chip::System::Clock::Seconds16(300),
+          chip::CommissioningWindowAdvertisement::kDnssdOnly) != CHIP_NO_ERROR) {
+    message = "Pairing unavailable. Wait, then try PAIR again.";
+    return "";
+  }
+  const String code = Matter.getManualPairingCode();
+  // Match ArduinoMatter's onboarding flags and use its live credential provider.
+  // Return raw MT: data only to this caller, never to shared serial history.
+  chip::RendezvousInformationFlags flags(chip::RendezvousInformationFlag::kOnNetwork);
+  if (Matter.isBLECommissioningEnabled()) flags.Set(chip::RendezvousInformationFlag::kBLE);
+  char buffer[chip::QRCodeBasicSetupPayloadGenerator::kMaxQRCodeBase38RepresentationLength + 1] = {};
+  chip::MutableCharSpan qr(buffer, sizeof(buffer));
+  if (!code.isEmpty() && GetQRCode(qr, flags) == CHIP_NO_ERROR) qrPayload = buffer;
+  message = String("Code: ") + code + "\nPairing open. Add Door Release in your home app.";
+  return code;
+}
+
 bool begin(ReleaseOutput& relay, bool isArmed) {
   output = &relay;
   armed = isArmed;
@@ -148,6 +241,10 @@ bool begin(ReleaseOutput& relay, bool isArmed) {
   Matter.begin();
   started = Lifecycle::ready();
   if (!started) return false;
+  if (config::wifiSsid[0] != '\0' &&
+      chip::DeviceLayer::PlatformMgr().ScheduleWork(seedConfiguredWiFi, 0) != CHIP_NO_ERROR) {
+    console.println("Wi-Fi setup could not be scheduled; Home pairing remains available.");
+  }
   printPairing();
   return true;
 }
@@ -183,7 +280,7 @@ void printPairing() {
 }
 
 void printStatus() {
-  Serial.printf("Matter: %s; Wi-Fi: %s\n",
+  console.printf("Matter: %s; Wi-Fi: %s\n",
       Matter.isDeviceCommissioned() ? "paired" : "not paired - add Door Release in Home",
       Matter.isWiFiConnected() ? "connected" : "not connected");
 }
@@ -193,7 +290,7 @@ void resetPairing() {
   resetting = true;
   output->shutdown();
   output->updateIndicator();
-  Serial.println("Resetting Matter pairing and Wi-Fi. App key is unchanged.");
+  console.println("Resetting Matter pairing and Wi-Fi. App key is unchanged.");
   Matter.decommission();
 }
 }

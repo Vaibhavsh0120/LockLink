@@ -36,7 +36,9 @@ physical verification requirements. Actual ecosystem pairing remains unverified.
 2. Copy `LockLink_IoT/include/private_config.example.h` to
    `LockLink_IoT/include/private_config.h` only if it does not exist. Preserve
    existing private values. Set `LOCKLINK_RELAY_ENABLED 0` for this LED test.
-   Wi-Fi credentials are supplied over Bluetooth during Matter pairing.
+   Wi-Fi credentials can be supplied over Bluetooth during Matter pairing,
+   or set `LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` in the private
+   config to connect before Home pairing. Saved networks take priority.
 3. In `LockLink_IoT`, run `pio run -e esp32-s3-n16r8 -t upload`, then
    `pio device monitor -b 115200`. This environment pins pioarduino
    `55.03.312-1` / Arduino-ESP32 `3.3.12` and the Matter partition layout.

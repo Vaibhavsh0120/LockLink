@@ -87,8 +87,39 @@ Matter and the app API run together and share the output controller.
    `pio run -e esp32-s3-n16r8 -t upload`, then `pio device monitor -b 115200`.
    Close other serial monitors before uploading.
 
-Wi-Fi is supplied over BLE during Matter pairing and saved by the Matter
-stack. Do not run a second Wi-Fi manager or hard-code a different network.
+Wi-Fi can be supplied over BLE during Matter pairing, or configured with
+`LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` in `include/private_config.h`.
+The optional configured credentials are applied once at startup only if no
+network or Matter pairing is saved and commissioning is not in progress.
+They use Matter's own Wi-Fi driver; there is no second reconnect manager.
+Saved credentials always take priority. The LockLink app can connect before
+Home pairing when the board already has Wi-Fi and an IPv4 address.
+
+Home does not need to stay open, and the phone does not need to remain nearby,
+for the board to stay connected. Matter manages reconnects after a network
+interruption. No firmware can guarantee connectivity during router/power
+failure. Reserve the ESP32's IP address in the router if you want the app's
+saved address to stay stable. Changing these config fields does not override
+an existing saved network. Use the ecosystem's supported network-change flow,
+or deliberately reset and pair again if changing networks; do not reset merely
+because a connection briefly drops.
+
+### Configured Wi-Fi followed by Home pairing
+
+| Situation | Expected behavior |
+| --- | --- |
+| Fresh board, configured SSID/password | Seeds the saved network once; the local app works after an IP address is assigned. |
+| Add Apple Home while that network is connected | Matter adds the controller's pairing; the configured network is already known. Keep the phone on the same LAN. |
+| App and Home both send commands | Both use the same output controller; repeated On does not extend the pulse. |
+| Successful supported network change through a controller | Matter owns the new saved network; config values do not overwrite it on reboot. The app address may need updating. |
+| Phone is on a different isolated network | Direct local app control cannot reach the ESP32. Pair/control on the same LAN. |
+| Router temporarily unavailable | Matter retries the saved network; config is not repeatedly reapplied and pairings are not erased. |
+
+Home pairing and Wi-Fi association are separate. The board has one Wi-Fi
+station connection, with multiple authorized control paths over it. A network
+change or pairing operation can interrupt connectivity; uninterrupted control
+during setup is not guaranteed. This build's Matter Wi-Fi driver stores one
+network, so it is not a roaming list or automatic alternate-router fallback.
 The project keeps the Matter partition layout, so an ordinary update from a
 previous Matter build should preserve pairing. Moving from older, non-Matter
 firmware changes the partition layout; preserve private configuration first
@@ -158,7 +189,7 @@ See Google's [development requirements](https://developers.home.google.com/matte
 
 ## Existing LockLink app
 
-After Wi-Fi commissioning, USB serial prints the current IPv4 address. Save
+After Wi-Fi connects by either setup route, USB serial prints the current IPv4 address. Save
 that address and the configured app key in LockLink. A DHCP reservation can
 keep the address stable. The original `/status`, `/challenge`, and signed
 `POST /unlock` routes are retained. Matter commands and app commands share the
@@ -211,6 +242,9 @@ accessories from the home apps before pairing again. Use this only when you
 intend to remove pairings and recommission, not as the first response to one
 startup warning. A full flash erase also destroys stored pairing/network data
 and is a deliberate last-resort recovery step.
+If configured Wi-Fi credentials remain in the firmware, they can seed Wi-Fi
+again after a reset. To reset into BLE-only setup, first build with both
+`LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` empty.
 
 For **No Response**, check power, the home network, client isolation, local
 IPv6/mDNS, and whether the required ecosystem controller is online. USB setup

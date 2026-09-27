@@ -12,7 +12,8 @@ class DeviceSettings {
 
   static const _addressKey = 'device_address';
   static const defaultAddress = 'http://192.168.0.111';
-  static const defaultPairingKey = '1234';
+  static const defaultPairingKey =
+      'd489653731bf3aeec85cca136a511294c329106e20a0b2627adc2f180146a507';
   static const _themeKey = 'theme_mode';
   static const _hapticsKey = 'haptic_feedback_enabled';
   static const _secureStorage = FlutterSecureStorage();

@@ -5,6 +5,12 @@
 #if !defined(LOCKLINK_IGNORE_PRIVATE_CONFIG) && __has_include("private_config.h")
 #include "private_config.h"
 #endif
+#ifndef LOCKLINK_WIFI_SSID
+#define LOCKLINK_WIFI_SSID ""
+#endif
+#ifndef LOCKLINK_WIFI_PASSWORD
+#define LOCKLINK_WIFI_PASSWORD ""
+#endif
 // A real relay must have an explicitly configured app authentication key.
 #ifndef LOCKLINK_UNLOCK_KEY_HEX
 #define LOCKLINK_UNLOCK_KEY_HEX ""
@@ -23,6 +29,10 @@
 #endif
 
 namespace config {
+constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
+constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
+static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");
+static_assert(sizeof(wifiPassword) <= 65, "Wi-Fi password must be at most 64 bytes");
 constexpr bool relayEnabled = LOCKLINK_RELAY_ENABLED == 1;
 constexpr const char* unlockKeyHex = LOCKLINK_UNLOCK_KEY_HEX;
 constexpr const char* allowedWebOrigin = LOCKLINK_ALLOWED_WEB_ORIGIN;

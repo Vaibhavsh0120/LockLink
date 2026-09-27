@@ -1,4 +1,6 @@
 #include "local_api.h"
+#include "device_console.h"
+#include "terminal_commands.h"
 #include <IPAddress.h>
 #include "config.h"
 #include "local_network.h"
@@ -23,6 +25,7 @@ void LocalApi::json(int status, const String& body) {
 }
 
 void LocalApi::begin() {
+  terminalAuth_.begin();
   const char* names[] = {"Origin", "X-LockLink-Nonce", "X-LockLink-Signature"};
   server_.collectHeaders(names, 3);
   server_.on("/status", HTTP_GET, [this]() {
@@ -60,10 +63,50 @@ void LocalApi::begin() {
       json(200, "{\"success\":true,\"state\":\"unlocking\",\"duration_ms\":2000}");
     }
   });
-  for (const char* path : {"/status", "/challenge", "/unlock"}) {
+  server_.on("/terminal/challenge", HTTP_GET, [this]() {
+    if (!terminalAuth_.ready()) {
+      json(503, "{\"error\":\"terminal_key_missing\"}");
+      return;
+    }
+    json(200, String("{\"nonce\":\"") + terminalAuth_.issueChallenge(millis()) + "\"}");
+  });
+  server_.on("/terminal", HTTP_POST, [this]() { terminalRequest(); });
+  for (const char* path : {"/status", "/challenge", "/unlock", "/terminal/challenge", "/terminal"}) {
     server_.on(path, HTTP_OPTIONS, [this]() { headers(); server_.send(204); });
   }
   server_.onNotFound([this]() { json(404, "{\"error\":\"not_found\"}"); });
+}
+
+void LocalApi::terminalRequest() {
+  if (!terminalAuth_.ready()) {
+    json(503, "{\"error\":\"terminal_key_missing\"}");
+    return;
+  }
+  const String command = server_.arg("plain");
+  const String after = server_.arg("after");
+  const String boot = server_.arg("boot");
+  bool valid = command.length() <= 64 && after.length() > 0 && after.length() <= 10 && boot.length() <= 16;
+  for (size_t i = 0; i < command.length(); ++i) valid &= command[i] >= 32 && command[i] <= 126;
+  for (size_t i = 0; i < after.length(); ++i) valid &= isDigit(after[i]);
+  for (size_t i = 0; i < boot.length(); ++i) valid &= isHexadecimalDigit(boot[i]);
+  const uint64_t cursor = strtoull(after.c_str(), nullptr, 10);
+  valid &= cursor <= UINT32_MAX;
+  if (!valid) { json(400, "{\"error\":\"invalid_request\"}"); return; }
+  const String action = String("terminal:") + after + ':' + boot + ':' + command;
+  if (!terminalAuth_.verify(server_.header("X-LockLink-Nonce"),
+                            server_.header("X-LockLink-Signature"), millis(), action)) {
+    json(401, "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  const auto reply = terminalCommand(command, output_, auth_);
+  const String logs = console.snapshot(uint32_t(cursor), boot);
+  if (logs.isEmpty()) { json(503, "{\"error\":\"terminal_busy\"}"); return; }
+  json(200, String("{") + logs + ",\"ok\":" + (reply.ok ? "true" : "false") +
+      ",\"commissioned\":" + (reply.commissioned ? "true" : "false") +
+      ",\"output\":" + jsonQuote(reply.output) + ",\"pairing_code\":" +
+      (reply.pairingCode.isEmpty() ? String("null") : jsonQuote(reply.pairingCode)) +
+      ",\"pairing_qr_payload\":" +
+      (reply.pairingQrPayload.isEmpty() ? String("null") : jsonQuote(reply.pairingQrPayload)) + '}');
 }
 
 void LocalApi::poll() {
@@ -74,24 +117,24 @@ void LocalApi::poll() {
     if (!listening_) {
       server_.begin();
       listening_ = true;
-      Serial.print("LockLink app address: ");
-      Serial.println(IPAddress(network.ipv4));
+      console.print("LockLink app address: ");
+      console.println(IPAddress(network.ipv4));
     }
     server_.handleClient();
   } else if (listening_) {
     server_.stop();
     listening_ = false;
-    Serial.println("App connection paused: waiting for Wi-Fi and an IPv4 address.");
+    console.println("App connection paused: waiting for Wi-Fi and an IPv4 address.");
   }
 }
 
 void LocalApi::printStatus() {
   const auto network = local_network::snapshot();
-  Serial.print("App HTTP: ");
+  console.print("App HTTP: ");
   if (network.ready() && listening_) {
-    Serial.print("http://");
-    Serial.println(IPAddress(network.ipv4));
+    console.print("http://");
+    console.println(IPAddress(network.ipv4));
   } else {
-    Serial.println("waiting for Wi-Fi / IPv4 (pair in Home if not yet paired).");
+    console.println("waiting for Wi-Fi / IPv4 (pair in Home if not yet paired).");
   }
 }

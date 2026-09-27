@@ -37,8 +37,7 @@ String encodeHex(const uint8_t* data, size_t bytes) {
 }  // namespace
 
 bool UnlockAuth::begin() {
-  ready_ = config::relayEnabled &&
-      decodeHex(String(config::unlockKeyHex), key_, sizeof(key_));
+  ready_ = decodeHex(String(config::unlockKeyHex), key_, sizeof(key_));
   return ready_;
 }
 
@@ -52,7 +51,7 @@ String UnlockAuth::issueChallenge(uint32_t nowMs) {
 }
 
 bool UnlockAuth::verify(
-    const String& nonce, const String& signature, uint32_t nowMs) {
+    const String& nonce, const String& signature, uint32_t nowMs, const String& action) {
   if (!ready_ || challenge_.isEmpty() || nonce != challenge_ ||
       uint32_t(nowMs - issuedAtMs_) > 10000) {
     challenge_ = "";
@@ -61,7 +60,7 @@ bool UnlockAuth::verify(
   challenge_ = "";  // Consume the nonce before checking the signature.
   uint8_t submitted[32];
   if (!decodeHex(signature, submitted, sizeof(submitted))) return false;
-  const String message = String("unlock:") + nonce;
+  const String message = action + ':' + nonce;
   uint8_t expected[32];
   const mbedtls_md_info_t* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
   if (sha256 == nullptr ||

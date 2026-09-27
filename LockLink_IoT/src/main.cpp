@@ -4,6 +4,8 @@
 #include "matter_release.h"
 #include "release_output.h"
 #include "unlock_auth.h"
+#include "device_console.h"
+#include "terminal_commands.h"
 
 ReleaseOutput output;
 UnlockAuth auth;
@@ -12,24 +14,25 @@ bool ready = false;
 
 void setup() {
   Serial.begin(115200);
+  console.begin();
   if (!output.begin()) {
-    Serial.println("Output initialization failed; door release disabled.");
+    console.println("Output failed. Release disabled.");
     return;
   }
   auth.begin();
   const bool armed = !config::relayEnabled || auth.ready();
-  if (!armed) Serial.println("Relay NOT armed: configure the app signing key.");
+  if (!armed) console.println("Relay not armed. Configure app key.");
   localApi.begin();
   if (!matter_release::begin(output, armed)) {
     output.shutdown();
-    Serial.println("Matter initialization failed; door release disabled.");
+    console.println("Matter failed. Release disabled.");
     return;
   }
   ready = true;
   matter_release::printStatus();
-  Serial.printf("Output: %s; armed: %s\n",
+  console.printf("Output: %s; armed: %s\n",
       config::relayEnabled ? "relay" : "LED test", armed ? "yes" : "no");
-  Serial.println("USB commands: STATUS, PAIR (setup code), RESET MATTER (erase pairings/Wi-Fi).");
+  console.println("Ready. Type HELP for commands.");
 }
 
 void loop() {
@@ -37,30 +40,45 @@ void loop() {
   matter_release::poll();
   output.updateIndicator();
   localApi.poll();
+  static bool lastRelease = false;
+  const bool releasing = output.active();
+  if (releasing != lastRelease) {
+    lastRelease = releasing;
+    console.println(releasing ? "Release: active" : "Release: inactive");
+  }
+  static uint32_t lastMatterCheck = 0;
+  static bool lastPaired = false;
+  if (uint32_t(millis() - lastMatterCheck) >= 1000) {
+    lastMatterCheck = millis();
+    const bool paired = matter_release::commissioned();
+    if (paired != lastPaired) {
+      lastPaired = paired;
+      console.println(paired ? "Matter: paired" : "Matter: not paired");
+    }
+  }
   // Bounded, nonblocking serial input; a partial line cannot stall the loop.
   static String command;
+  static bool overflow = false;
   while (Serial.available()) {
     const char c = Serial.read();
     if (c == '\n' || c == '\r') {
       command.trim();
-      if (command == "PAIR") matter_release::printPairing();
-      if (command == "STATUS") {
-        matter_release::printStatus();
-        localApi.printStatus();
-        Serial.printf("Output: %s; armed: %s\n",
-            config::relayEnabled ? "relay" : "LED test",
-            (!config::relayEnabled || auth.ready()) ? "yes" : "no");
-        Serial.println(output.active() ? "Release: active" : "Release: inactive");
-      }
-      if (command == "RESET MATTER") {
+      command.toUpperCase();
+      if (overflow) {
+        Serial.println("Command too long. Maximum 64 characters.");
+      } else if (command == "RESET MATTER") {
         ready = false;
         matter_release::resetPairing();
+      } else if (!command.isEmpty()) {
+        // Private responses, including Matter codes, are not added to history.
+        Serial.println(terminalCommand(command, output, auth).output);
       }
       command = "";
-    } else if (command.length() < 64) {
+      overflow = false;
+    } else if (!overflow && command.length() < 64) {
       command += c;
     } else {
-      command = "";
+      overflow = true;
     }
   }
   delay(2);

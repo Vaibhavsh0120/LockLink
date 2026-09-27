@@ -7,4 +7,7 @@ void poll();
 void printPairing();
 void printStatus();
 void resetPairing();
+bool commissioned();
+String identity();
+String preparePairing(String& message, String& qrPayload);
 }

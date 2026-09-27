@@ -1,7 +1,8 @@
 # Firmware and prototype boundaries
 
 `LockLink_IoT` is the single firmware for the Matter **Door Release** switch
-and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning.
+and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning,
+or seeded from optional private config credentials when no network is saved.
 Both control routes share one two-second release controller. Matter On starts
 a pulse, Off stops it early, and repeated On does not extend it.
 

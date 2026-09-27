@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/app_haptics.dart';
 import '../services/device_settings.dart';
 import '../services/widget_bridge.dart';
+import 'terminal_screen.dart';
+import 'smart_home_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -358,6 +360,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _preferencesSection(busy),
+                  const SizedBox(height: 16),
+                  _section('Device tools', Icons.build_outlined, [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.terminal_rounded),
+                      title: const Text('Terminal'),
+                      subtitle: const Text('Live logs and commands'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      enabled: !busy && !_loading,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              TerminalScreen(settings: widget.settings),
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.home_outlined),
+                      title: const Text('Smart home setup'),
+                      subtitle: const Text(
+                        'Apple Home, Google Home, Alexa · Optional',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      enabled: !busy && !_loading,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              SmartHomeScreen(settings: widget.settings),
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      'Uses your saved device address and pairing key.',
+                    ),
+                  ]),
                   if (WidgetBridge.supported) ...[
                     const SizedBox(height: 16),
                     _widgetsSection(busy),

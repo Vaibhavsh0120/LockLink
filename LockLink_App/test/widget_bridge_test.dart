@@ -31,6 +31,7 @@ void main() {
         return null;
       });
       final settings = DeviceSettings(preferences: MemoryPreferences());
+      await settings.saveUnlockKey(DeviceSettings.defaultAddress, '1234');
       await WidgetBridge.synchronize(settings);
       expect(calls.single.method, 'configure');
       expect(calls.single.arguments, {

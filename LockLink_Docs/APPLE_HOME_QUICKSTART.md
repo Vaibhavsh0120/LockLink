@@ -4,17 +4,31 @@ Use `LockLink_IoT`, the single firmware for Apple Home and the LockLink app.
 Start with the relay disconnected and test the onboard LED first. If you
 already have `include/private_config.h`, preserve it and check that
 `LOCKLINK_RELAY_ENABLED` is `0` for the LED test. Otherwise copy the public
-example to that private file. Wi-Fi is supplied during Matter pairing;
-there is no separate Wi-Fi configuration step in the source code.
+example to that private file. Choose either Wi-Fi setup route below.
 
-**Where does the Wi-Fi password go?** Keep your iPhone connected to your home
+**Option A: configure Wi-Fi before Home pairing.** In the ignored
+`LockLink_IoT/include/private_config.h`, set:
+
+```cpp
+#define LOCKLINK_WIFI_SSID "Your 2.4 GHz Wi-Fi name"
+#define LOCKLINK_WIFI_PASSWORD "Your Wi-Fi password"
+```
+
+On startup these values seed Matter's Wi-Fi driver only when there is no saved
+network, no existing Matter pairing, and no pairing in progress. The app can
+then work before Home pairing. The board retains Bluetooth pairing so you can
+add it to Home later. Existing saved credentials take priority; editing these
+fields does not replace an already saved network. Do not publish this private
+file or firmware built with your credentials.
+
+**Option B: leave both fields empty.** Keep your iPhone connected to your home
 Wi-Fi and Bluetooth enabled. During Add Accessory, the Home setup process
 passes the network credentials to the ESP32 over Bluetooth LE. Follow any
 network/password prompt on the phone; do not put your router password in
 `LOCKLINK_UNLOCK_KEY_HEX`. That field is a separate app authentication key.
 Matter saves the Wi-Fi credentials on the board for subsequent restarts.
 
-On a fresh board, complete Home pairing before connecting the LockLink app.
+With Option B on a fresh board, complete Home pairing before connecting the LockLink app.
 The app currently accepts the board's address and app key; it cannot send
 Wi-Fi credentials to an unconfigured board. Until pairing supplies them,
 `Wi-Fi: not connected` and no app IP address are expected. Normal commands
@@ -100,3 +114,27 @@ the installer cannot provision the shared storage permission.
 Google Home and Alexa need compatible Matter controllers; their phone apps
 alone are insufficient for this implementation. See [full Matter setup](MATTER_SETUP.md)
 for controller requirements and adding more ecosystems with a fresh sharing code.
+
+## 5. Put Home on the Lock Screen
+
+First confirm **Door Release** works inside Apple Home. A Lock Screen control
+is different from a home hub; the ESP32 is an accessory, not a HomePod/Apple TV hub.
+
+For the bottom-left button (normally the flashlight): unlock the iPhone,
+touch and hold the Lock Screen, choose **Customize → Lock Screen**, remove
+the left control with **−**, then tap **+**. Search for **Home** and choose
+the available Home control. If it offers **Scene or Accessory**, choose
+**Door Release**; otherwise the Home control opens the Home controls picker.
+Tap **Done**. Names and available controls can vary with iOS.
+
+You can also add a direct tile in **Control Center → + → Add a Control →
+Home Scene or Accessory → Choose Scene or Accessory → Door Release**.
+If by "left side" you mean the widget page reached by swiping right, add the
+LockLink widget there using [widget setup](WIDGETS.md).
+
+Apple documents [Lock Screen customization](https://support.apple.com/guide/iphone/create-a-custom-lock-screen-iph4d0e6c351/ios)
+and [Home accessory controls](https://support.apple.com/guide/iphone/control-accessories-iph0a717a8fd/ios).
+The phone may require authentication according to its settings. A
+[HomePod or Apple TV home hub](https://support.apple.com/en-us/102557) is separate
+hardware used for features such as remote Home access; adding an ESP32 does
+not make it appear under Home Hubs & Bridges.

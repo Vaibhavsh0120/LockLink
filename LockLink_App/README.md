@@ -13,3 +13,28 @@ Android and iOS keep the pairing key in platform secure storage. The web app
 keeps it only for the current tab session. Relay mode allows browser access
 only from the exact origin configured in the firmware. See the
 [root README](../README.md) and [relay setup](../LockLink_Docs/RELAY_SETUP.md).
+
+## Terminal and optional home setup
+
+Save the device address and pairing key, then open **Settings > Terminal** for
+live LockLink application logs and `HELP`, `STATUS`, or `PAIR` commands. The
+ESP32 must already be reachable on the same Wi-Fi and run the matching firmware.
+Both LED and relay modes require a firmware signing key for terminal access.
+Older firmware prompts you to update; ROM and SDK boot diagnostics still need USB.
+
+**Settings > Smart home setup** provides optional Apple Home, Google Home and
+Alexa guides. They run `STATUS` and `PAIR`, then show the device's Matter QR and
+manual code with **Copy code** and **Enlarge QR**. Scan with another phone's
+home app, or copy the code to pair on this phone. After `PAIR`, Terminal offers
+**Show pairing QR** too. Older firmware without a QR payload keeps manual pairing.
+A device already paired to a home needs a fresh sharing code from that home app.
+Setup never resets the device or triggers a release.
+
+Pairing codes and open QR views clear when the app leaves the foreground, the
+connection fails, the device restarts, or pairing completes. QR generation stays
+on the phone; QR payloads never enter terminal logs or persistent storage.
+
+The new default app key applies only when no key has been saved. Existing saved
+keys and the firmware's private configuration are unchanged. The app key is not
+the Matter setup code. See [command and transport plan](../LockLink_Docs/TERMINAL_PLAN.md)
+for protocol details and hardware verification boundaries.

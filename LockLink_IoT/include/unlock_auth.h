@@ -8,7 +8,8 @@ class UnlockAuth {
   bool begin();
   bool ready() const { return ready_; }
   String issueChallenge(uint32_t nowMs);
-  bool verify(const String& nonce, const String& signature, uint32_t nowMs);
+  bool verify(const String& nonce, const String& signature, uint32_t nowMs,
+              const String& action = "unlock");
 
  private:
   uint8_t key_[32] = {};

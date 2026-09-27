@@ -43,7 +43,8 @@ a meter and no lock connected before applying 12 V.
    `LockLink_IoT/include/private_config.h` only if it does not already exist.
    Preserve existing private settings; this file is gitignored. First test
    the LED with `LOCKLINK_RELAY_ENABLED 0` and follow the
-   [Apple Home quickstart](APPLE_HOME_QUICKSTART.md) to provide Wi-Fi over BLE.
+   [Apple Home quickstart](APPLE_HOME_QUICKSTART.md) to provide Wi-Fi over BLE
+   or with optional private config credentials.
 2. The public example has an empty key. If a private key is not already
    configured, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
@@ -52,7 +53,7 @@ a meter and no lock connected before applying 12 V.
 3. In `LockLink_IoT`, run `pio run -e esp32-s3-n16r8 -t upload`, then
    `pio device monitor -b 115200`. Serial Monitor must report the relay output
    and `armed: yes`; it must **not** say `Relay NOT armed`. Type `STATUS` and
-   Enter to check Wi-Fi and the local app address after commissioning.
+   Enter to check Wi-Fi and the local app address after connection.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
    Unlock sends a signed command and pulses the relay for two seconds.

@@ -7,6 +7,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="locklink-tests-") as temporary:
     for name, sources in {
+        "terminal_history": ["test/native/terminal_history_test.cpp"],
         "lock_state": ["test/native/lock_state_test.cpp"],
         "local_network": ["test/native/local_network_test.cpp", "src/local_network.cpp"],
         "release_output": ["test/native/release_output_test.cpp", "src/release_output.cpp"],

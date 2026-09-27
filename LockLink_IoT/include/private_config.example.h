@@ -1,12 +1,14 @@
 #pragma once
 
-// Do NOT put your home Wi-Fi password or SSID in this file.
-// First pair in Apple Home (or a supported Google/Alexa Matter setup).
-// That setup sends the Wi-Fi credentials to the ESP32 over Bluetooth LE;
-// Matter saves them on the board and reconnects after a reboot.
-// Normal control uses Wi-Fi, not Bluetooth. Use a 2.4 GHz home network.
-// A fresh board has no app connection until this pairing step succeeds.
-// The LockLink app does not currently provision Wi-Fi itself.
+// OPTIONAL: copy this file to private_config.h and enter your 2.4 GHz Wi-Fi.
+// Used at startup ONLY if the board has no saved Wi-Fi and no Matter pairing.
+// Saved credentials win; these fields never overwrite a Home-configured network.
+// Leave both empty to let Apple/Google/Alexa supply Wi-Fi during BLE pairing.
+// Matter manages reconnects in both cases. No Home hub/phone must remain nearby
+// for the ESP32 to stay on Wi-Fi. Do not publish private_config.h or private builds.
+#define LOCKLINK_WIFI_SSID ""
+#define LOCKLINK_WIFI_PASSWORD ""
+
 // First test using the board's RGB LED. Enable only after verifying relay wiring.
 #define LOCKLINK_RELAY_ENABLED 0
 #define LOCKLINK_RELAY_GPIO 2

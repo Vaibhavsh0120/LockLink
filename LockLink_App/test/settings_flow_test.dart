@@ -59,7 +59,7 @@ void main() {
           );
           expect(
             tester.widget<TextFormField>(fields.at(1)).controller!.text,
-            '1234',
+            DeviceSettings.defaultPairingKey,
           );
           await tester.tap(find.byTooltip('Show pairing key'));
           await tester.pumpAndSettle();
