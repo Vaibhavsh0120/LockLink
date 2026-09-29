@@ -33,7 +33,7 @@ void LocalApi::begin() {
          (output_.active() ? "unlocking" : "locked") + "\",\"mode\":\"" +
          (config::relayEnabled ? "relay" : "led") + "\",\"armed\":" +
          (!config::relayEnabled || auth_.ready() ? "true" : "false") +
-         ",\"matter_accessory\":\"momentary_switch\",\"physical_state_known\":false}");
+         ",\"matter_accessory\":\"door_lock\",\"physical_state_known\":false}");
   });
   server_.on("/challenge", HTTP_GET, [this]() {
     if (!auth_.ready()) {

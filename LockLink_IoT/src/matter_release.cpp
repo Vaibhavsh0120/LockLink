@@ -1,12 +1,13 @@
 #include "matter_release.h"
 
 #include <Matter.h>
-#include <MatterEndpoints/MatterOnOffPlugin.h>
+#include <MatterEndPoint.h>
 #include <Preferences.h>
 #include <atomic>
 #include <app/CommandHandlerInterface.h>
 #include <app/CommandHandlerInterfaceRegistry.h>
 #include <app/server/Server.h>
+#include <app/clusters/door-lock-server/door-lock-server.h>
 #include <platform/ESP32/NetworkCommissioningDriver.h>
 #include <bootloader_random.h>
 #include <esp_random.h>
@@ -16,14 +17,27 @@
 #include "config.h"
 #include "device_console.h"
 
+// Arduino's Matter package leaves this hook to sketches that create a Door
+// Lock endpoint directly. Initialize the cluster's server for that endpoint.
+void emberAfDoorLockClusterInitCallback(chip::EndpointId endpoint) {
+  DoorLockServer::Instance().InitEndpoint(endpoint);
+}
+
 namespace {
 using namespace chip::app::Clusters;
-MatterOnOffPlugin releaseSwitch;
+struct ReleaseLock : MatterEndPoint {
+  bool attributeChangeCB(uint16_t, uint32_t, uint32_t,
+                         esp_matter_attr_val_t*) override {
+    // LockState is reported from the relay, never used to actuate it.
+    return true;
+  }
+};
+ReleaseLock releaseLock;
 ReleaseOutput* output = nullptr;
 bool armed = false;
 bool acceptingCommands = false;  // Accessed only on the Matter task.
-bool reporting = false;          // Suppress actuator callbacks on state reports.
 bool started = false;
+bool reportedActive = false;
 std::atomic<bool> syncPending{false};
 std::atomic<bool> resetting{false};
 uint32_t lastSync = 0;
@@ -74,6 +88,7 @@ void seedConfiguredWiFi(intptr_t) {
 
 // The SDK exposes startup failure detection to derived implementations.
 struct Lifecycle : ArduinoMatter {
+  static void prepare() { _init(); }
   static bool ready() { return isStackStarted(); }
 };
 
@@ -107,16 +122,16 @@ bool reportState() {
   // here, not when scheduling, so an old queued report cannot overwrite a
   // newer command. Publishing state must never initiate another pulse.
   const bool active = output->active();
-  if (acceptingCommands && releaseSwitch.getOnOff() == active) {
+  if (acceptingCommands && reportedActive == active) {
     return true;
   }
-  esp_matter_attr_val_t value = esp_matter_bool(active);
-  reporting = true;
-  const esp_err_t result = esp_matter::attribute::update(
-      releaseSwitch.getEndPointId(), OnOff::Id, OnOff::Attributes::OnOff::Id, &value);
-  reporting = false;
-  if (result == ESP_OK) acceptingCommands = true;
-  return result == ESP_OK;
+  const auto state = active ? DoorLock::DlLockState::kUnlocked
+                            : DoorLock::DlLockState::kLocked;
+  if (!DoorLockServer::Instance().SetLockState(releaseLock.getEndPointId(), state))
+    return false;
+  reportedActive = active;
+  acceptingCommands = true;
+  return true;
 }
 
 void syncState(intptr_t) {
@@ -124,21 +139,19 @@ void syncState(intptr_t) {
   syncPending = false;
 }
 
-// Intercept commands before the SDK's OnOff server, which ignores an On/Off
-// matching its cached attribute. That cache can lag HTTP releases/timer expiry.
+// Intercept lock commands so a controller command acts on the relay, not on
+// the server's cached state. That cache can lag HTTP releases/timer expiry.
 // HandleCommand decodes the generated command payload before touching output.
 class ReleaseCommands : public chip::app::CommandHandlerInterface {
  public:
   explicit ReleaseCommands(chip::EndpointId endpoint)
-      : CommandHandlerInterface(chip::MakeOptional(endpoint), OnOff::Id) {}
+      : CommandHandlerInterface(chip::MakeOptional(endpoint), DoorLock::Id) {}
 
   void InvokeCommand(HandlerContext& context) override {
-    HandleCommand<OnOff::Commands::On::DecodableType>(context,
-        [](HandlerContext& ctx, const auto&) { execute(ctx, Action::on); });
-    HandleCommand<OnOff::Commands::Off::DecodableType>(context,
-        [](HandlerContext& ctx, const auto&) { execute(ctx, Action::off); });
-    HandleCommand<OnOff::Commands::Toggle::DecodableType>(context,
-        [](HandlerContext& ctx, const auto&) { execute(ctx, Action::toggle); });
+    HandleCommand<DoorLock::Commands::UnlockDoor::DecodableType>(context,
+        [](HandlerContext& ctx, const auto&) { execute(ctx, true); });
+    HandleCommand<DoorLock::Commands::LockDoor::DecodableType>(context,
+        [](HandlerContext& ctx, const auto&) { execute(ctx, false); });
     if (!context.mCommandHandled) {
       context.SetCommandHandled();
       context.mCommandHandler.AddStatus(context.mRequestPath,
@@ -147,17 +160,13 @@ class ReleaseCommands : public chip::app::CommandHandlerInterface {
   }
 
  private:
-  enum class Action { on, off, toggle };
-  static void execute(HandlerContext& context, Action action) {
+  static void execute(HandlerContext& context, bool unlock) {
     using Status = chip::Protocols::InteractionModel::Status;
     Status status = Status::Failure;
     if (acceptingCommands && armed && !resetting) {
-      // Toggle follows actual release activity, never the lagging attribute.
-      const bool turnOn = action == Action::on ||
-          (action == Action::toggle && !output->active());
-      if (turnOn) {
+      if (unlock) {
         const auto result = output->release();
-        // Repeated On succeeds without restarting the two-second cutoff.
+        // Repeated Unlock succeeds without restarting the two-second cutoff.
         if (result == ReleaseOutput::Result::started ||
             result == ReleaseOutput::Result::busy) status = Status::Success;
       } else {
@@ -221,21 +230,26 @@ String preparePairing(String& message, String& qrPayload) {
 bool begin(ReleaseOutput& relay, bool isArmed) {
   output = &relay;
   armed = isArmed;
-  if (!Matter.selectNetwork(MATTER_NETWORK_WIFI) || !configurePairing() ||
-      !releaseSwitch.begin(false)) return false;
+  if (!Matter.selectNetwork(MATTER_NETWORK_WIFI) || !configurePairing()) return false;
+  Lifecycle::prepare();
+  esp_matter::endpoint::door_lock::config_t lockConfig;
+  lockConfig.door_lock.lock_state =
+      static_cast<uint8_t>(DoorLock::DlLockState::kLocked);
+  lockConfig.door_lock.lock_type =
+      static_cast<uint8_t>(DoorLock::DlLockType::kOther);
+  lockConfig.door_lock.actuator_enabled = true;
+  auto* endpoint = esp_matter::endpoint::door_lock::create(
+      esp_matter::node::get(), &lockConfig, ENDPOINT_FLAG_NONE, &releaseLock);
+  if (!endpoint) return false;
+  releaseLock.setEndPointId(esp_matter::endpoint::get_id(endpoint));
   if (!Matter.setVendorName("LockLink") ||
       !Matter.setProductName("LockLink Door Release") ||
       !Matter.setDeviceName(matter_config::deviceName)) return false;
-  releaseSwitch.onChange([](bool) {
-    // Only validated commands actuate. Startup restoration, scene attribute
-    // writes, and reporting itself must never initiate a release.
-    return reporting;
-  });
-  releaseSwitch.onIdentify([](bool) {
+  releaseLock.onIdentify([](bool) {
     // Identification must never actuate the door.
     return true;
   });
-  static ReleaseCommands commands(releaseSwitch.getEndPointId());
+  static ReleaseCommands commands(releaseLock.getEndPointId());
   if (chip::app::CommandHandlerInterfaceRegistry::Instance()
           .RegisterCommandHandler(&commands) != CHIP_NO_ERROR) return false;
   Matter.begin();
@@ -265,8 +279,8 @@ void printPairing() {
   info->GetVendorId(vendor);
   info->GetProductId(product);
   Serial.printf("Matter test VID: 0x%04X, PID: 0x%04X\n", vendor, product);
-  Serial.println("Accessory: Door Release (momentary switch / outlet)");
-  Serial.println("ON releases for 2 seconds; OFF ends release. No door-position sensor.");
+  Serial.println("Accessory: Door Release (Matter door lock)");
+  Serial.println("Unlock releases for 2 seconds; Lock ends release. No door-position sensor.");
   if (!Matter.isDeviceCommissioned()) {
     Serial.println("Keep this one-time setup code private:");
     Serial.println(Matter.getManualPairingCode());
