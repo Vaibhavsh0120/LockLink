@@ -11,6 +11,7 @@ class DoorControlCard extends StatelessWidget {
     required this.helperText,
     required this.onUnlock,
     this.compact = false,
+    this.controlSize,
   });
 
   final bool online;
@@ -21,6 +22,7 @@ class DoorControlCard extends StatelessWidget {
   final String? helperText;
   final VoidCallback? onUnlock;
   final bool compact;
+  final double? controlSize;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class DoorControlCard extends StatelessWidget {
         ? const Color(0xFF805712)
         : const Color(0xFF386446);
     final canUnlock = online && ready && !active && onUnlock != null;
+    final diameter = controlSize ?? (compact ? 200.0 : 224.0);
 
     return Card(
       child: Padding(
@@ -85,7 +88,7 @@ class DoorControlCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: compact ? 200 : 224),
+                  constraints: BoxConstraints(maxWidth: diameter),
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: Stack(
@@ -121,7 +124,7 @@ class DoorControlCard extends StatelessWidget {
                                 active
                                     ? Icons.lock_open_rounded
                                     : Icons.lock_outline_rounded,
-                                size: compact ? 64 : 72,
+                                size: compact ? 64 : diameter * 72 / 224,
                                 color: online && ready
                                     ? colors.primary
                                     : colors.onSurfaceVariant,

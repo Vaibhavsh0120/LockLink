@@ -314,6 +314,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 600;
+            // Reserve room for the header, connection row and card content.
+            final controlSize = compact
+                ? 200.0
+                : (constraints.maxHeight - 560).clamp(224.0, 320.0);
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 compact ? 20 : 32,
@@ -323,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
+                  constraints: BoxConstraints(maxWidth: compact ? 560 : 1120),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -356,97 +360,112 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                       SizedBox(height: compact ? 40 : 56),
-                      DoorControlCard(
-                        online: _online,
-                        ready: ready,
-                        active: active,
-                        stateLabel: _loading
-                            ? 'Connecting…'
-                            : !_hasChecked && _address != null
-                            ? 'Checking connection…'
-                            : stateLabel,
-                        statusText: _loading || !_hasChecked
-                            ? 'Connecting'
-                            : statusText,
-                        helperText: _loading || !_hasChecked
-                            ? null
-                            : helperText,
-                        onUnlock: ready ? _unlock : null,
-                        compact: compact,
-                      ),
-                      const SizedBox(height: 16),
-                      if (_loading)
-                        const LinearProgressIndicator()
-                      else if (_address == null)
-                        OutlinedButton.icon(
-                          onPressed: _editAddress,
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Connect device'),
-                        )
-                      else
-                        Material(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(20),
-                          clipBehavior: Clip.antiAlias,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 6,
-                            ),
-                            leading: Icon(
-                              Icons.router_outlined,
-                              color: colors.onSurfaceVariant,
-                            ),
-                            title: const Text('Connection'),
-                            subtitle: Text(
-                              _address!.replaceFirst('http://', ''),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: compact ? 560 : 840,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              DoorControlCard(
+                                online: _online,
+                                ready: ready,
+                                active: active,
+                                stateLabel: _loading
+                                    ? 'Connecting…'
+                                    : !_hasChecked && _address != null
+                                    ? 'Checking connection…'
+                                    : stateLabel,
+                                statusText: _loading || !_hasChecked
+                                    ? 'Connecting'
+                                    : statusText,
+                                helperText: _loading || !_hasChecked
+                                    ? null
+                                    : helperText,
+                                onUnlock: ready ? _unlock : null,
+                                compact: compact,
+                                controlSize: controlSize,
                               ),
-                            ),
-                            trailing: IconButton(
-                              tooltip: 'Check connection',
-                              onPressed: _userChecking || _unlocking
-                                  ? null
-                                  : () => _refresh(userInitiated: true),
-                              icon: _userChecking
-                                  ? const SizedBox.square(
-                                      dimension: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.refresh_rounded),
-                            ),
-                            onTap: _editAddress,
+                              const SizedBox(height: 16),
+                              if (_loading)
+                                const LinearProgressIndicator()
+                              else if (_address == null)
+                                OutlinedButton.icon(
+                                  onPressed: _editAddress,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Connect device'),
+                                )
+                              else
+                                Material(
+                                  color: colors.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(20),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 6,
+                                    ),
+                                    leading: Icon(
+                                      Icons.router_outlined,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                    title: const Text('Connection'),
+                                    subtitle: Text(
+                                      _address!.replaceFirst('http://', ''),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    trailing: IconButton(
+                                      tooltip: 'Check connection',
+                                      onPressed: _userChecking || _unlocking
+                                          ? null
+                                          : () => _refresh(userInitiated: true),
+                                      icon: _userChecking
+                                          ? const SizedBox.square(
+                                              dimension: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.refresh_rounded),
+                                    ),
+                                    onTap: _editAddress,
+                                  ),
+                                ),
+                              if (!_loading && _hasChecked && !_online) ...[
+                                const SizedBox(height: 12),
+                                const DeviceConnectionHelp(),
+                              ],
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.wifi_rounded,
+                                    size: 14,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      _relayMode
+                                          ? 'Local Wi-Fi · Lock control'
+                                          : 'Local Wi-Fi · LED prototype',
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      if (!_loading && _hasChecked && !_online) ...[
-                        const SizedBox(height: 12),
-                        const DeviceConnectionHelp(),
-                      ],
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.wifi_rounded,
-                            size: 14,
-                            color: colors.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              _relayMode
-                                  ? 'Local Wi-Fi · Lock control'
-                                  : 'Local Wi-Fi · LED prototype',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),

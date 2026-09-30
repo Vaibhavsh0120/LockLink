@@ -355,6 +355,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final compact = constraints.maxWidth < 600;
               final wide = constraints.maxWidth >= 840;
               final preferences = Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -396,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Uses your saved device address and pairing key.',
                     ),
                   ]),
-                  if (WidgetBridge.supported) ...[
+                  if (!wide && WidgetBridge.supported) ...[
                     const SizedBox(height: 16),
                     _widgetsSection(busy),
                   ],
@@ -404,14 +405,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               return SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
-                  wide ? 32 : 20,
+                  compact ? 20 : 32,
                   24,
-                  wide ? 32 : 20,
+                  compact ? 20 : 32,
                   32,
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: wide ? 960 : 560),
+                    constraints: BoxConstraints(
+                      maxWidth: wide
+                          ? 1120
+                          : compact
+                          ? 560
+                          : 800,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -438,7 +445,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(child: _deviceSection(busy)),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _deviceSection(busy),
+                                    if (WidgetBridge.supported) ...[
+                                      const SizedBox(height: 16),
+                                      _widgetsSection(busy),
+                                    ],
+                                  ],
+                                ),
+                              ),
                               const SizedBox(width: 24),
                               Expanded(child: preferences),
                             ],
