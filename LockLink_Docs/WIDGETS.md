@@ -1,4 +1,4 @@
-# Gate widgets (v1.4.0)
+# Gate widgets (v1.9.2)
 
 The widget's **Unlock gate** button sends the existing local status/challenge/
 signed-unlock sequence without launching Flutter. It uses the address and pairing
@@ -7,7 +7,7 @@ Open LockLink once after installing/upgrading and allow local-network access.
 
 ## Android
 
-Install the APK, open Settings, and tap **Set up / update widgets**. Confirm the
+Install the APK, open Settings, and tap **Set up widgets**. Confirm the
 launcher's pin prompt, or long-press Home Screen → Widgets → LockLink. The native
 widget works while Flutter is closed. A locked phone must be unlocked first.
 The widget picker offers **Gate · Circle** (1×1) and **Gate · Pill** (2×1).
@@ -21,7 +21,7 @@ standard app widgets; Home Screen is the supported placement.
 
 ## iPhone
 
-Interactive widgets require iOS 17 or later, including the APIs used on iOS 27.
+Interactive widgets require iOS 17 or later.
 Home Screen and Today View support small/medium widgets. Lock Screen supports
 circular and rectangular widgets. Add LockLink through the system widget picker.
 The small Home Screen design is circular; the medium design is a slim pill.
@@ -79,7 +79,7 @@ added through that installation. A directly installed, correctly signed app and
 extension are required. LiveContainer's own launch widgets are a different
 feature and do not execute LockLink's background unlock intent.
 
-Maintainer explanation: https://github.com/LiveContainer/LiveContainer/issues/245
+See the [LiveContainer maintainer explanation](https://github.com/LiveContainer/LiveContainer/issues/245).
 
 ## Behavior and limits
 
@@ -101,14 +101,18 @@ Maintainer explanation: https://github.com/LiveContainer/LiveContainer/issues/24
 ## Validation
 
 Windows can build the Android APK and run Flutter/Kotlin checks. An iOS build
-requires Xcode on macOS; signed entitlement access, iOS 27 widget presentation,
+requires Xcode on macOS; signed entitlement access, widget presentation,
 device authentication and real gate operation need physical-device testing.
 The release workflow checks that the widget extension exists in the packaged app.
 `RunnerTests` covers original/resigned group selection, unauthorized/ambiguous
-groups, and provisioning-profile fallback. These native tests require Xcode and
-have not been run on Windows. The Flutter setup regression test covers distinct
+groups, and provisioning-profile fallback. The release workflow runs these tests
+on a macOS simulator and retains logs/results; they cannot run on Windows.
+Simulator tests do not establish signed entitlement access on an iPhone.
+The Flutter setup regression test covers distinct
 signing and locked-storage guidance, retry, and successful synchronization.
-The compact Android layouts were also inflated as real RemoteViews in an Android
-13 emulator, compared with the previous card, and inspected in light mode and
-dark mode with 130% text scaling. Launcher placement and physical gate operation
-remain separate device checks. iOS layout changes have not been rendered here.
+Earlier compact Android layouts were inflated as RemoteViews in an Android 13
+emulator and inspected in light/dark mode with 130% text scaling. This is prior
+development evidence, not validation of every later app version. Launcher
+placement and physical gate operation remain separate device checks; iOS layout
+needs macOS/device validation. See [v1.9.2 release notes](releases/v1.9.2.md)
+for current checks.

@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _relayMode = false;
   bool _armed = true;
   bool _pairingError = false;
+  bool _settingsError = false;
   String? _unlockKey;
   String _deviceState = 'locked';
 
@@ -61,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _pollTimer?.cancel();
     setState(() {
       _online = false;
-      _hasChecked = false;
+      _hasChecked = _settingsError;
     });
     if (_foreground && !_loading) unawaited(_refresh());
   }
@@ -94,10 +95,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     if (!mounted) return;
     _haptics.enabled = hapticsEnabled;
-    final address = await _settings.loadAddress();
-    if (!mounted) return;
-    _connect(address);
-    _unlockKey = await _settings.loadUnlockKey(address);
+    try {
+      final address = await _settings.loadAddress();
+      final key = await _settings.loadUnlockKey(address);
+      if (!mounted) return;
+      _connect(address);
+      _unlockKey = key;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _connect(null);
+        _settingsError = true;
+        _hasChecked = true;
+        _loading = false;
+      });
+      return;
+    }
     if (!mounted) return;
     setState(() => _loading = false);
     unawaited(
@@ -121,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _relayMode = false;
     _armed = true;
     _pairingError = false;
+    _settingsError = false;
     _unlockKey = null;
     _deviceState = 'locked';
     _pollTimer?.cancel();
@@ -191,12 +205,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ? 'Pairing key rejected. Update it in device settings.'
               : error.statusCode == 409
               ? 'The device is already unlocking. Try again shortly.'
+              : error.statusCode == 503
+              ? 'Device busy or unavailable. Try again shortly.'
               : 'Could not unlock. Check your device and try again.',
         );
         if (error.statusCode == 401) {
           setState(() => _pairingError = true);
-        } else if (error.statusCode == 503) {
-          setState(() => _armed = false);
         } else if (error.statusCode != 409) {
           setState(() => _online = false);
         }
@@ -226,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _settingsOpen = true;
     _statusGeneration++;
     _pollTimer?.cancel();
-    final changed = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => SettingsScreen(
           settings: _settings,
@@ -241,10 +255,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _online = false;
       _hasChecked = false;
     });
-    if (changed != true) {
-      await _refresh();
-      return;
-    }
+    // A key can have been saved even if saving the address then failed.
+    // Reload on every return so another page cannot leave control using an old key.
     try {
       final address = await _settings.loadAddress();
       final savedKey = await _settings.loadUnlockKey(address);
@@ -256,8 +268,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _refresh();
     } catch (_) {
       if (mounted) {
-        _showMessage('Could not load device settings. Please try again.');
-        await _refresh();
+        setState(() {
+          _connect(null);
+          _settingsError = true;
+          _hasChecked = true;
+        });
       }
     }
   }
@@ -298,7 +313,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : !ready
         ? 'Setup needed'
         : 'Online';
-    final helperText = _address == null
+    final helperText = _settingsError
+        ? 'Could not load device settings. Open Settings to try again.'
+        : _address == null
         ? 'Add device address'
         : !_online
         ? 'Power on the ESP32 and use the same Wi-Fi.'
@@ -393,8 +410,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               else if (_address == null)
                                 OutlinedButton.icon(
                                   onPressed: _editAddress,
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Connect device'),
+                                  icon: Icon(
+                                    _settingsError
+                                        ? Icons.tune_rounded
+                                        : Icons.add_rounded,
+                                  ),
+                                  label: Text(
+                                    _settingsError
+                                        ? 'Open Settings'
+                                        : 'Connect device',
+                                  ),
                                 )
                               else
                                 Material(
@@ -435,7 +460,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     onTap: _editAddress,
                                   ),
                                 ),
-                              if (!_loading && _hasChecked && !_online) ...[
+                              if (!_loading &&
+                                  _hasChecked &&
+                                  !_online &&
+                                  !_settingsError) ...[
                                 const SizedBox(height: 12),
                                 const DeviceConnectionHelp(),
                               ],

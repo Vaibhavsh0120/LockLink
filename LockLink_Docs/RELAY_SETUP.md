@@ -1,6 +1,6 @@
 # Relay setup for a 12 V power-to-unlock lock
 
-The tested ESP32-S3 has its RGB indicator on GPIO 48. Relay mode uses **GPIO 2**
+The public ESP32-S3 configuration uses GPIO 48 for its RGB indicator. Relay mode uses **GPIO 2**
 for the relay signal and keeps GPIO 48 as the pulse indicator. The relay is a
 switch: the ESP32 GPIO must never power the 12 V lock directly.
 
@@ -9,7 +9,7 @@ switch: the ESP32 GPIO must never power the 12 V lock directly.
 The pictured Robu 5 V optocoupler board needs a 5 V relay supply. Its listing
 does not clearly establish 3.3 V input compatibility or trigger polarity, so
 do not connect its IN terminal straight to the ESP32 yet. A documented option
-is **DFRobot DFR0473**: it accepts a 2.8–5.5 V supply and a high-level control
+is [DFRobot DFR0473](https://wiki.dfrobot.com/dfr0473/): it accepts a 2.8–5.5 V supply and a high-level control
 signal of at least 2.8 V, has COM/NO/NC contacts, and is rated for DC
 switching. Verify the lock's peak current against the relay's *inductive*
 load rating, not just the advertised resistive 10 A figure.
@@ -82,11 +82,12 @@ this power-to-unlock lock unpowered. Wi-Fi loss disables new app commands;
 an already started pulse still ends after two seconds. This software does not
 measure lock position or prove that the door opened.
 
-The same firmware also accepts authorized Matter switch commands: On starts
-the two-second pulse and Off ends it early. Repeated On and app unlock
-requests during an active pulse must not extend it. Verify app On followed by
-Matter Off, a new release immediately after expiry, Wi-Fi loss during a pulse,
+The same firmware also accepts authorized Matter door-lock commands: Unlock
+starts the two-second pulse and Lock ends it early. Repeated Unlock and app unlock
+requests during an active pulse must not extend it. Verify app unlock followed by
+Matter Lock, a new release immediately after expiry, Wi-Fi loss during a pulse,
 and reboot with the lock disconnected before testing the installed lock.
 Anyone allowed to operate **Door Release** can release the door, including
-through voice commands or automations; do not include it in general All On
-scenes. See [Matter setup](MATTER_SETUP.md) for controller permissions.
+through permitted controllers or automations. Assistant voice unlocking depends
+on ecosystem authentication and lock policies. See [Matter setup](MATTER_SETUP.md)
+for controller permissions and Google's unlock restrictions.

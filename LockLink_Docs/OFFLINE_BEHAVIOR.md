@@ -1,4 +1,4 @@
-# Device offline and recovery
+# Device offline and recovery (v1.9.2)
 
 LockLink cannot tell a powered-off ESP32 from a wrong address, a different Wi-Fi
 network, blocked local traffic, or a lost reply. It reports an unreachable device
@@ -8,6 +8,7 @@ verified door position.
 | Situation | Behavior and recovery |
 | --- | --- |
 | Device off or unreachable at app launch | Show connection checking until the first request finishes, then Offline. Unlock, setup-code generation and Terminal commands stay disabled. Settings and guide navigation remain available. |
+| Saved settings or secure storage cannot be read | Stop loading, keep control disabled, and offer Open Settings. Retry loading there; returning reloads the saved address and key, including after a partially failed save. |
 | Wi-Fi disappears while the app is open | The next request fails or times out. Disable device actions, clear pairing secrets and any open QR dialog, and discard current setup metadata. Existing terminal logs stay readable. |
 | Device comes back at the same address | Foreground screens retry read-only status/log requests after five seconds. Restore actions after a fresh successful response. Never automatically resend PAIR or Unlock. |
 | App returns from the background or Settings | Revalidate the connection before allowing control. Old responses cannot restore the previous online state or pairing secrets. |
@@ -23,11 +24,18 @@ Flutter uses a four-second deadline per HTTP request, including response-body
 reads. On timeout it signals transport cancellation with `AbortableRequest`;
 polling can reuse the client afterward. Cancellation cannot undo a command
 already received by the ESP32. A challenge plus command can involve two requests.
+All app and widget clients reject HTTP redirects. Device addresses must be bare
+local HTTP URLs, with ordinary decimal IPv4 octets (no leading zeroes) or a
+`.local`/`localhost` host and an optional port from 1 to 65535. Unsafe saved
+addresses are rejected before transport; correct the address in Settings.
 
 Android and iOS widgets check device status before attempting a release, use
 bounded requests and keep uncertain-result messages. Android work expires after
 15 seconds and does not replay an interrupted command. Widget results are the
 last attempt, not a live connection indicator.
+Widgets require a recognized idle output state before sending a command. Relay
+status must explicitly report an armed output. A busy HTTP 503 response does not
+prove the relay is unarmed; clients describe it as busy or unavailable.
 
 The firmware keeps Matter in charge of Wi-Fi reconnects. Local HTTP stops when
 Wi-Fi/IPv4 is unavailable and starts again when the interface is ready. Network
@@ -40,17 +48,14 @@ output initializes inactive at boot. This describes firmware behavior, not a
 guarantee about the physical lock's state during power loss. Home-controller
 offline messages and recovery timing are managed by their respective ecosystems.
 
-## Verification
+## Verification boundaries
 
-- Flutter analysis and 45 tests passed, including unreachable startup, recovery,
-  stale lifecycle responses, command gating, uncertain unlock outcomes and an
-  abort-signal/client-reuse regression.
-- Android widget unit tests and the four native firmware test suites passed.
-- Inspected picker previews in light/dark themes at mobile and desktop widths,
-  including 320-pixel width with 200% text. Offline setup and Terminal previews
-  use mock responses; they are not live hardware sessions.
-- Physical power cycling, router loss/rejoin, native socket cancellation,
-  ecosystem recovery and iOS compilation were not tested in this change.
+Automated coverage checks unreachable startup, recovery, stale lifecycle
+responses, command gating, uncertain unlock outcomes and abort signaling/client
+reuse. Mock setup/Terminal previews do not establish real Wi-Fi recovery.
+Physical power cycling, router loss/rejoin, native socket cancellation,
+ecosystem recovery and iOS compilation require their own hardware/platform checks.
+See [v1.9.2 release notes](releases/v1.9.2.md) for this version's actual results.
 
 Connected-home changes sync from the door on each foreground LockLink client.
 Codes are hidden when another client replaces the pairing window. A home removed

@@ -8,7 +8,6 @@ class LocalApi {
   LocalApi(ReleaseOutput& output, UnlockAuth& auth) : output_(output), auth_(auth) {}
   void begin();
   void poll();
-  void printStatus();
 
  private:
   void headers();

@@ -63,14 +63,15 @@ to show it while the device is unpaired.
 4. If Home warns that the accessory is uncertified and offers **Add Anyway**,
    choose it for this personal development board.
 5. Name it **Door Release** and choose a room.
-6. Turn **Door Release On**. The board LED should turn on for two seconds,
+6. **Unlock Door Release**. The board LED should turn on for two seconds,
    then turn off by itself.
-7. Try **“Siri, turn on Door Release.”**
+7. Test **“Siri, unlock Door Release”** and any authentication required on the phone.
 
-It appears as a switch/outlet, as requested. It does not show a verified locked
-or unlocked door state. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
-documents Add Anyway; actual pairing and Siri operation on your iPhones,
-including iOS 27, still need to be verified.
+The v1.9.2 firmware appears as a Matter door lock. Its Locked/Unlocked states
+describe only the inactive/active release output; they do not verify the latch
+or door position. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
+documents Add Anyway; actual pairing and Siri operation on your iPhones
+still need to be verified.
 Apple [supports local Wi-Fi Matter control on iOS 18+ without a home hub](https://support.apple.com/en-us/102135).
 
 After pairing, type `STATUS` and press Enter in the USB monitor to check
@@ -91,12 +92,14 @@ before resetting anything.
 4. Close the serial monitor with Ctrl+C, then run the upload command again.
    Normal firmware updates with the same Matter partition layout preserve
    pairing; do not erase the flash for an ordinary update.
-5. Test one two-second release, early Off, repeat On, Wi-Fi loss during a
+5. Test one two-second release, early Lock, repeated Unlock, Wi-Fi loss during a
    release, and reboot. The relay must never stay energized after the pulse.
 
 The key is saved by the app; you do not enter a password each time. Matter uses
 its own one-time pairing. Anyone permitted to operate Door Release can open
-the door, including authorized voice controllers and automations.
+the door, including authorized controllers and automations. Voice unlocking
+depends on the ecosystem's door-lock permissions; the firmware does not supply
+user PIN management or bypass controller authentication.
 
 ## 4. Keep using the LockLink app
 
@@ -114,6 +117,8 @@ the installer cannot provision the shared storage permission.
 Google Home and Alexa need compatible Matter controllers; their phone apps
 alone are insufficient for this implementation. See [full Matter setup](MATTER_SETUP.md)
 for controller requirements and adding more ecosystems with a fresh sharing code.
+Google disables Matter door-lock voice unlock and remote unlock for locks
+without mandatory PINs; commissioning alone does not prove unlock availability.
 
 ## 5. Put Home on the Lock Screen
 

@@ -86,10 +86,20 @@ class DeviceSettings {
       return null;
     }
     final host = uri.host.toLowerCase();
+    try {
+      if (uri.hasPort && (uri.port < 1 || uri.port > 65535)) return null;
+    } on FormatException {
+      return null;
+    }
+    final segments = host.split('.');
     final octets = host.split('.').map(int.tryParse).toList();
     final validIpv4 =
         octets.length == 4 &&
-        octets.every((part) => part != null && part >= 0 && part <= 255);
+        octets.every((part) => part != null && part >= 0 && part <= 255) &&
+        List.generate(
+          4,
+          (i) => octets[i].toString() == segments[i],
+        ).every((v) => v);
     final isPrivateIpv4 =
         validIpv4 &&
         (octets[0] == 10 ||

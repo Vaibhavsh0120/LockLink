@@ -5,10 +5,14 @@ import 'package:http/http.dart' as http;
 
 import '../models/door_status.dart';
 import 'device_request.dart';
+import 'device_settings.dart';
 
 class LockLinkApiService {
-  LockLinkApiService(this.baseUrl, {http.Client? client})
-    : _client = client ?? http.Client();
+  LockLinkApiService(String baseUrl, {http.Client? client})
+    : baseUrl =
+          DeviceSettings.normalizeAddress(baseUrl) ??
+          (throw const FormatException('Use a local HTTP device address')),
+      _client = client ?? http.Client();
 
   final String baseUrl;
   final http.Client _client;
@@ -85,13 +89,14 @@ class LockLinkApiService {
       throw const DeviceException('Door is already unlocking', statusCode: 409);
     }
     if (response.statusCode != 200) {
-      throw DeviceException('Device returned ${response.statusCode}');
+      throw const FormatException('No confirmed unlock response');
     }
     final body = jsonDecode(response.body);
     if (body is! Map<String, dynamic> ||
         body['success'] != true ||
         body['state'] != 'unlocking' ||
-        body['duration_ms'] is! int) {
+        body['duration_ms'] is! int ||
+        (body['duration_ms'] as int) <= 0) {
       throw const FormatException('Unexpected unlock response');
     }
     return Duration(milliseconds: body['duration_ms'] as int);

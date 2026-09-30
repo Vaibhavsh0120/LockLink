@@ -16,12 +16,14 @@ data class GateConfig(val address: String, val signingKey: String) {
     init {
         val uri = URI(address)
         val host = uri.host.orEmpty().lowercase()
-        val parts = host.split('.').map { it.toIntOrNull() }
-        val ipv4 = parts.size == 4 && parts.all { it != null && it in 0..255 }
+        val segments = host.split('.')
+        val parts = segments.map { it.toIntOrNull() }
+        val ipv4 = parts.size == 4 && parts.all { it != null && it in 0..255 } &&
+            segments.indices.all { segments[it] == parts[it].toString() }
         val local = host == "localhost" || host.endsWith(".local") || (ipv4 &&
             (parts[0] == 10 || (parts[0] == 192 && parts[1] == 168) ||
              (parts[0] == 172 && parts[1]!! in 16..31)))
-        require(uri.scheme == "http" && local && uri.userInfo == null &&
+        require(uri.scheme == "http" && local && (uri.port == -1 || uri.port in 1..65535) && uri.userInfo == null &&
             uri.rawQuery == null && uri.fragment == null && uri.path.orEmpty().isEmpty())
         require(signingKey.matches(Regex("[0-9a-fA-F]{64}")))
     }

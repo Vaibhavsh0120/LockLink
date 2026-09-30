@@ -1,0 +1,35 @@
+name: Mobile checks
+
+on:
+  push:
+    paths: ['LockLink_App/**', 'LockLink_IoT/include/config.h', '.github/scripts/**', '.github/workflows/mobile-checks.yml']
+  pull_request:
+    paths: ['LockLink_App/**', 'LockLink_IoT/include/config.h', '.github/scripts/**', '.github/workflows/mobile-checks.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check project versions
+        run: python3 .github/scripts/validate_release.py --metadata-only
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - name: Analyze, test, and build Android
+        working-directory: LockLink_App
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build apk --debug
+      - name: Test native widget protocol
+        working-directory: LockLink_App/android
+        run: ./gradlew :app:testDebugUnitTest --console=plain

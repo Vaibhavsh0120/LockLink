@@ -3,6 +3,7 @@ package com.locklink.locklink.widgets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.json.JSONObject
 import java.net.ServerSocket
 import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicInteger
@@ -23,9 +24,22 @@ class GateClientTest {
     @Test fun allowsOnlyBareLocalHttpAddresses() {
         listOf("http://192.168.0.111", "http://10.1.2.3:8080", "http://gate.local").forEach { GateConfig(it, key) }
         listOf("http://8.8.8.8", "http://192.168.0.111/unlock", "http://user@192.168.0.111",
+            "http://0172.16.0.1", "http://192.168.01.111", "http://10.1.2.3:0", "http://10.1.2.3:65536",
             "http://10.foo.0.0.1", "http://192.168.0.111?x=1").forEach {
             assertThrows(IllegalArgumentException::class.java) { GateConfig(it, key) }
         }
+    }
+
+    @Test fun malformedOrUnarmedStatusCannotAuthorizeUnlock() {
+        listOf("""{"online":true}""", """{"online":"true","state":"locked"}""",
+            """{"online":true,"state":"unknown"}""", """{"online":true,"state":"unlocking"}""",
+            """{"online":true,"state":"locked","mode":"relay"}""",
+            """{"online":true,"state":"locked","mode":"relay","armed":"true"}""",
+            """{"online":true,"state":"locked","mode":12}""").forEach {
+            assertThrows(GateFailure::class.java) { GateClient.modeForStatus(JSONObject(it)) }
+        }
+        assertEquals("led", GateClient.modeForStatus(JSONObject("""{"online":true,"state":"locked"}""")))
+        assertEquals("relay", GateClient.modeForStatus(JSONObject("""{"online":true,"state":"locked","mode":"relay","armed":true}""")))
     }
 
     @Test fun ambiguousPostResponsesNeverClaimRejectionOrRetry() {

@@ -22,12 +22,10 @@ object GateClient {
 
     fun unlock(config: GateConfig, canSend: () -> Boolean): String {
         val status = request(config.address, "/status")
-        if (!status.optBoolean("online", false)) throw GateFailure("Device offline. Check power and Wi-Fi.")
-        if (status.optString("state") == "unlocking") throw GateFailure("Gate is already unlocking.")
+        val mode = modeForStatus(status)
         val headers = mutableMapOf<String, String>()
-        when (status.optString("mode", "led")) {
+        when (mode) {
             "relay" -> {
-                if (!status.optBoolean("armed", false)) throw GateFailure("Device not armed. Check setup.")
                 val nonce = request(config.address, "/challenge").getString("nonce")
                 headers["X-LockLink-Nonce"] = nonce
                 headers["X-LockLink-Signature"] = signature(config.signingKey, nonce)
@@ -43,11 +41,28 @@ object GateClient {
         } catch (_: Exception) {
             throw GateFailure("No confirmation. Check gate before retrying.")
         }
-        if (!result.optBoolean("success") || result.optString("state") != "unlocking" ||
-            result.optInt("duration_ms", -1) < 0) {
+        if (result.opt("success") != true || result.opt("state") != "unlocking" ||
+            result.opt("duration_ms") !is Int || result.getInt("duration_ms") <= 0) {
             throw GateFailure("No confirmation. Check gate before retrying.")
         }
-        return if (status.optString("mode", "led") == "relay") "Unlock command accepted." else "LED command accepted."
+        return if (mode == "relay") "Unlock command accepted." else "LED command accepted."
+    }
+
+    internal fun modeForStatus(status: JSONObject): String {
+        val online = status.opt("online") as? Boolean
+            ?: throw GateFailure("Unexpected device response.")
+        if (!online) throw GateFailure("Device offline. Check power and Wi-Fi.")
+        when (status.opt("state")) {
+            "locked" -> Unit
+            "unlocking" -> throw GateFailure("Gate is already unlocking.")
+            else -> throw GateFailure("Unexpected device response.")
+        }
+        val mode = if (status.has("mode")) status.opt("mode") else "led"
+        if (mode != "led" && mode != "relay") throw GateFailure("Unsupported device mode.")
+        if (mode == "relay" && status.opt("armed") != true) {
+            throw GateFailure("Device not armed. Check setup.")
+        }
+        return mode as String
     }
 
     private fun request(address: String, path: String, headers: Map<String, String>? = null): JSONObject {
@@ -68,7 +83,7 @@ object GateClient {
                 200 -> Unit
                 401 -> throw GateFailure("Pairing key rejected. Update settings.")
                 409 -> throw GateFailure("Gate is already unlocking.")
-                503 -> throw GateFailure("Device not armed. Check setup.")
+                503 -> throw GateFailure("Device busy or unavailable. Try again shortly.")
                 else -> throw GateFailure(if (headers == null) "Device refused the request."
                     else "No confirmation. Check gate before retrying.")
             }

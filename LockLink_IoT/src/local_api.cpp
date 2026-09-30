@@ -33,7 +33,8 @@ void LocalApi::begin() {
          (output_.active() ? "unlocking" : "locked") + "\",\"mode\":\"" +
          (config::relayEnabled ? "relay" : "led") + "\",\"armed\":" +
          (!config::relayEnabled || auth_.ready() ? "true" : "false") +
-         ",\"matter_accessory\":\"door_lock\",\"physical_state_known\":false}");
+         ",\"firmware_version\":\"" + config::version +
+         "\",\"matter_accessory\":\"door_lock\",\"physical_state_known\":false}");
   });
   server_.on("/challenge", HTTP_GET, [this]() {
     if (!auth_.ready()) {
@@ -102,9 +103,10 @@ void LocalApi::terminalRequest() {
     json(401, "{\"error\":\"unauthorized\"}");
     return;
   }
-  const auto reply = terminalCommand(command, output_, auth_);
   const String logs = console.snapshot(uint32_t(cursor), boot);
   if (logs.isEmpty()) { json(503, "{\"error\":\"terminal_busy\"}"); return; }
+  // Check log availability before executing a command that can change pairings.
+  const auto reply = terminalCommand(command, output_, auth_);
   json(200, String("{") + logs + ",\"ok\":" + (reply.ok ? "true" : "false") +
       ",\"commissioned\":" + (reply.commissioned ? "true" : "false") +
       ",\"homes\":" + reply.homesJson + ",\"fabric_capacity\":" + reply.fabricCapacity +
@@ -133,16 +135,5 @@ void LocalApi::poll() {
     server_.stop();
     listening_ = false;
     console.println("App connection paused: waiting for Wi-Fi and an IPv4 address.");
-  }
-}
-
-void LocalApi::printStatus() {
-  const auto network = local_network::snapshot();
-  console.print("App HTTP: ");
-  if (network.ready() && listening_) {
-    console.print("http://");
-    console.println(IPAddress(network.ipv4));
-  } else {
-    console.println("waiting for Wi-Fi / IPv4 (pair in Home if not yet paired).");
   }
 }

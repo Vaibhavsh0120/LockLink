@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:locklink/services/device_settings.dart';
+import 'package:locklink/services/device_request.dart';
 import 'package:locklink/services/locklink_api_service.dart';
+import 'package:locklink/services/terminal_service.dart';
 
 class PendingDeviceClient extends http.BaseClient {
   var requests = 0;
@@ -31,7 +33,49 @@ class PendingDeviceClient extends http.BaseClient {
   }
 }
 
+class RedirectProbeClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    expect(request.followRedirects, isFalse);
+    return http.StreamedResponse(const Stream.empty(), 302);
+  }
+}
+
 void main() {
+  test('local requests reject redirects and unsafe stored addresses', () async {
+    for (final address in [
+      'http://user@192.168.1.50',
+      'http://192.168.1.50/unlock',
+      'http://192.168.1.50?x=1',
+    ]) {
+      expect(() => LockLinkApiService(address), throwsFormatException);
+      expect(
+        () => TerminalService(address, DeviceSettings.defaultPairingKey),
+        throwsFormatException,
+      );
+    }
+    final client = RedirectProbeClient();
+    for (final method in ['GET', 'POST']) {
+      expect(
+        (await deviceRequest(
+          client,
+          method,
+          Uri.parse('http://192.168.1.50/status'),
+          timeout: const Duration(seconds: 1),
+        )).statusCode,
+        302,
+      );
+    }
+    await expectLater(
+      deviceRequest(
+        client,
+        'GET',
+        Uri.parse('http://0172.16.0.1/status'),
+        timeout: const Duration(seconds: 1),
+      ),
+      throwsFormatException,
+    );
+  });
   testWidgets('timed-out device requests abort and the client can reconnect', (
     tester,
   ) async {
@@ -68,6 +112,14 @@ void main() {
     expect(DeviceSettings.normalizeAddress('https://example.com'), isNull);
     expect(DeviceSettings.normalizeAddress('http://example.com'), isNull);
     expect(DeviceSettings.normalizeAddress('http://192.168.1.999'), isNull);
+    for (final address in [
+      'http://0172.16.0.1',
+      'http://192.168.01.50',
+      'http://10.1.2.3:0',
+      'http://10.1.2.3:65536',
+    ]) {
+      expect(DeviceSettings.normalizeAddress(address), isNull);
+    }
     expect(
       DeviceSettings.normalizeAddress('http://192.168.1.50/unlock'),
       isNull,
@@ -146,13 +198,37 @@ void main() {
     api.close();
   });
 
-  test('rejects malformed unlock success', () async {
+  test('relay status must explicitly report an armed output', () async {
     final api = LockLinkApiService(
       'http://192.168.1.50',
-      client: MockClient((_) async => http.Response('{"success":true}', 200)),
+      client: MockClient(
+        (_) async => http.Response(
+          '{"online":true,"state":"locked","mode":"relay"}',
+          200,
+        ),
+      ),
     );
-    expect(api.unlockDoor(), throwsFormatException);
+    expect((await api.getStatus()).armed, isFalse);
     api.close();
+  });
+
+  test('rejects malformed or unconfirmed unlock responses', () async {
+    for (final response in [
+      http.Response('{"success":true}', 200),
+      http.Response('{}', 500),
+      http.Response('{}', 503),
+      http.Response(
+        '{"success":true,"state":"unlocking","duration_ms":0}',
+        200,
+      ),
+    ]) {
+      final api = LockLinkApiService(
+        'http://192.168.1.50',
+        client: MockClient((_) async => response),
+      );
+      await expectLater(api.unlockDoor(), throwsFormatException);
+      api.close();
+    }
   });
 
   test(

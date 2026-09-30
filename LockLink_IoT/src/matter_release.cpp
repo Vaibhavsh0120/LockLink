@@ -15,7 +15,7 @@
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <setup_payload/QRCodeSetupPayloadGenerator.h>
 #include <setup_payload/ManualSetupPayloadGenerator.h>
-#include <lib/support/UTF8.h>
+#include <lib/support/utf8.h>
 #include "config.h"
 #include "device_console.h"
 

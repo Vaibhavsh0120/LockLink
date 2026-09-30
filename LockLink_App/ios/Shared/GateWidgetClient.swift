@@ -28,18 +28,9 @@ actor GateWidgetClient {
         do {
             let config = try GateWidgetStore.load()
             let status = try await request(session, config: config, path: "/status")
-            guard status["online"] as? Bool == true else {
-                throw GateWidgetError.message("Device offline. Check power and Wi-Fi.")
-            }
-            guard status["state"] as? String != "unlocking" else {
-                throw GateWidgetError.message("Gate is already unlocking.")
-            }
-            let mode = status["mode"] as? String ?? "led"
+            let mode = try GateWidgetStatus.modeForStatus(status)
             var headers: [String: String] = [:]
             if mode == "relay" {
-                guard status["armed"] as? Bool == true else {
-                    throw GateWidgetError.message("Device not armed. Check setup.")
-                }
                 let challenge = try await request(session, config: config, path: "/challenge")
                 guard let nonce = challenge["nonce"] as? String,
                       nonce.range(of: "^[0-9a-f]{32}$", options: .regularExpression) != nil else {
@@ -69,8 +60,8 @@ actor GateWidgetClient {
             } catch {
                 throw GateWidgetError.message("No confirmation. Check gate before retrying.")
             }
-            guard result["success"] as? Bool == true, result["state"] as? String == "unlocking",
-                  let duration = result["duration_ms"] as? Int, duration >= 0 else {
+            guard GateWidgetStatus.jsonBool(result["success"]) == true, result["state"] as? String == "unlocking",
+                  let duration = result["duration_ms"] as? Int, duration > 0 else {
                 throw GateWidgetError.message("No confirmation. Check gate before retrying.")
             }
             return mode == "relay" ? "Unlock command accepted." : "LED command accepted."
@@ -94,7 +85,7 @@ actor GateWidgetClient {
         case 200: break
         case 401: throw GateWidgetError.message("Pairing key rejected. Update settings.")
         case 409: throw GateWidgetError.message("Gate is already unlocking.")
-        case 503: throw GateWidgetError.message("Device not armed. Check setup.")
+        case 503: throw GateWidgetError.message("Device busy or unavailable. Try again shortly.")
         default: throw GateWidgetError.message(headers == nil ? "Device refused the request."
             : "No confirmation. Check gate before retrying.")
         }

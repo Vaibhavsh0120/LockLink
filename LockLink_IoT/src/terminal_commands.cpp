@@ -16,7 +16,7 @@ TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth&
     reply.output = "HELP   Commands\nSTATUS Device state\nHOMES  Connected homes\nPAIR   First home setup code\nPAIR ADD   Add another home\nPAIR CLOSE   Close LockLink pairing\nHOME REMOVE <id>   Remove one home\nHOME NAME <id> <UTF-8 hex>   Rename home\nRESET MATTER   USB only; erases homes and Wi-Fi.";
   } else if (command == "STATUS") {
     const auto network = local_network::snapshot();
-    reply.output = String("Wi-Fi: ") + (network.ready() ? IPAddress(network.ipv4).toString() : "offline") +
+    reply.output = String("LockLink v") + config::version + "\nWi-Fi: " + (network.ready() ? IPAddress(network.ipv4).toString() : "offline") +
         "\nMatter: " + (reply.commissioned ? "paired" : "not paired") +
         "\nOutput: " + (config::relayEnabled ? "relay" : "LED") +
         "; armed: " + (!config::relayEnabled || auth.ready() ? "yes" : "no") +

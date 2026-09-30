@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../models/matter_pairing_payload.dart';
 import '../models/matter_home.dart';
 import 'device_request.dart';
+import 'device_settings.dart';
 
 class TerminalReply {
   const TerminalReply({
@@ -151,8 +152,11 @@ class TerminalException implements Exception {
 }
 
 class TerminalService {
-  TerminalService(this.address, this.key, {http.Client? client})
-    : _client = client ?? http.Client();
+  TerminalService(String address, this.key, {http.Client? client})
+    : address =
+          DeviceSettings.normalizeAddress(address) ??
+          (throw const FormatException('Use a local HTTP device address')),
+      _client = client ?? http.Client();
   final String address;
   final String key;
   final http.Client _client;

@@ -17,8 +17,50 @@ http.Response status(bool active) => http.Response(
   200,
 );
 
+class UnavailableSettings extends DeviceSettings {
+  UnavailableSettings(this.failAddress)
+    : super(preferences: MemoryPreferences());
+  final bool failAddress;
+  @override
+  Future<String> loadAddress() async {
+    if (failAddress) throw StateError('Storage unavailable');
+    return DeviceSettings.defaultAddress;
+  }
+
+  @override
+  Future<String> loadUnlockKey(String address) async =>
+      throw StateError('Credential unavailable');
+}
+
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+  testWidgets('settings storage failures leave a usable recovery action', (
+    tester,
+  ) async {
+    for (final failAddress in [true, false]) {
+      await tester.pumpWidget(
+        LockLinkApp(settings: UnavailableSettings(failAddress)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(
+        find.text(
+          'Could not load device settings. Open Settings to try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+        isNotNull,
+      );
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   Future<void> runApp(
     WidgetTester tester,

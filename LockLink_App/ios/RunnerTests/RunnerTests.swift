@@ -5,6 +5,27 @@ import XCTest
 
 class RunnerTests: XCTestCase {
 
+  func testWidgetRejectsAmbiguousAddressesAndMalformedStatus() throws {
+    let key = String(repeating: "a", count: 64)
+    for address in ["http://0172.16.0.1", "http://192.168.01.111", "http://10.1.2.3:0",
+                    "http://10.1.2.3:65536", "http://8.8.8.8", "http://gate.local/unlock"] {
+      XCTAssertThrowsError(try GateWidgetConfiguration(address: address, signingKey: key).validate())
+    }
+    try GateWidgetConfiguration(address: "http://192.168.0.111:8080", signingKey: key).validate()
+    let statuses: [[String: Any]] = [["online": true], ["online": "true", "state": "locked"],
+      ["online": true, "state": "unknown"], ["online": true, "state": "unlocking"],
+      ["online": true, "state": "locked", "mode": "relay"],
+      ["online": true, "state": "locked", "mode": "relay", "armed": "true"],
+      ["online": true, "state": "locked", "mode": 12],
+      ["online": 1, "state": "locked"]]
+    for status in statuses {
+      XCTAssertThrowsError(try GateWidgetStatus.modeForStatus(status))
+    }
+    XCTAssertEqual(try GateWidgetStatus.modeForStatus(["online": true, "state": "locked"]), "led")
+    XCTAssertEqual(try GateWidgetStatus.modeForStatus(
+      ["online": true, "state": "locked", "mode": "relay", "armed": true]), "relay")
+  }
+
   func testResignedWidgetGroupRequiresOSAccessAndRejectsAmbiguity() {
     let base = "group.com.locklink.locklink"
     let resigned = base + ".ABCDE12345"

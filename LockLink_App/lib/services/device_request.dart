@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import 'device_settings.dart';
+
 /// A timeout also aborts transport work; it never queues or retries a command.
 Future<http.Response> deviceRequest(
   http.Client client,
@@ -11,12 +13,16 @@ Future<http.Response> deviceRequest(
   Map<String, String>? headers,
   String? body,
 }) async {
+  if (DeviceSettings.normalizeAddress(url.origin) == null) {
+    throw const FormatException('Use a local HTTP device address');
+  }
   final abort = Completer<void>();
   final request = http.AbortableRequest(
     method,
     url,
     abortTrigger: abort.future,
   );
+  request.followRedirects = false;
   if (headers != null) request.headers.addAll(headers);
   if (body != null) request.body = body;
   try {

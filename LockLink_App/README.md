@@ -1,6 +1,6 @@
 # LockLink app
 
-Flutter client for the local ESP32-S3 LockLink controller. It runs on Android,
+The v1.9.2 Flutter client for the local ESP32-S3 LockLink controller runs on Android,
 iOS, and the web. Choose light, dark, or system appearance in Settings.
 
 1. Run `flutter pub get` and `flutter run`.
@@ -27,16 +27,21 @@ Alexa guides. They run `STATUS` and `PAIR`, then show the device's Matter QR and
 manual code with **Copy code** and **Enlarge QR**. Scan with another phone's
 home app, or copy the code to pair on this phone. After `PAIR`, Terminal offers
 **Show pairing QR** too. Older firmware without a QR payload keeps manual pairing.
-A device already paired to a home needs a fresh sharing code from that home app.
-Setup never resets the device or triggers a release.
+A device already paired to a home needs a fresh sharing code. Choose **Add home app**
+in LockLink or use the existing home app's sharing flow. Connected homes support
+rename and individual removal; these actions retain Wi-Fi, other homes and the
+app key. The list represents Matter homes/fabrics, not individual accounts or phones.
+Setup never resets the device or starts a release. Removing a home stops any
+active release before removing that pairing.
 
 Pairing codes and open QR views clear when the app leaves the foreground, the
 connection fails, the device restarts, or pairing completes. QR generation stays
 on the phone; QR payloads never enter terminal logs or persistent storage.
 
-The new default app key applies only when no key has been saved. Existing saved
-keys and the firmware's private configuration are unchanged. The app key is not
-the Matter setup code. See [command and transport plan](../LockLink_Docs/TERMINAL_PLAN.md)
+The initial address and app pairing value are placeholders; configure the door's
+actual address and a private matching key. Existing saved keys take precedence;
+saving app settings does not change the firmware's private configuration.
+The app key is not the Matter setup code. See [terminal contract](../LockLink_Docs/TERMINAL_PLAN.md)
 for protocol details and hardware verification boundaries.
 
 ## When the ESP32 is offline

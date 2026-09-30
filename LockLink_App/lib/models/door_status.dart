@@ -14,7 +14,7 @@ class DoorStatus {
     final online = json['online'];
     final state = json['state'];
     final mode = json['mode'] ?? 'led';
-    final armed = json['armed'] ?? true;
+    final armed = json['armed'] ?? (mode == 'led');
     if (online is! bool ||
         state is! String ||
         (state != 'locked' && state != 'unlocking') ||

@@ -1,14 +1,14 @@
 # Firmware and prototype boundaries
 
-`LockLink_IoT` is the single firmware for the Matter **Door Release** switch
+`LockLink_IoT` is the single firmware for the Matter **Door Release** door lock
 and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning,
 or seeded from optional private config credentials when no network is saved.
-Both control routes share one two-second release controller. Matter On starts
-a pulse, Off stops it early, and repeated On does not extend it.
+Both control routes share one two-second release controller. Matter Unlock starts
+a pulse, Lock stops it early, and repeated Unlock does not extend it.
 
 The local HTTP API remains intentionally small:
 
-- `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true,"matter_accessory":"momentary_switch","physical_state_known":false}`
+- `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true,"matter_accessory":"door_lock","physical_state_known":false}`
 - `POST /unlock` in LED mode → `{"success":true,"state":"unlocking","duration_ms":2000}`
 - Repeated `POST /unlock` during a pulse → HTTP 409.
 
@@ -18,6 +18,13 @@ signs `unlock:<nonce>` with HMAC-SHA256 using the pairing key, then sends
 `POST /unlock` with `X-LockLink-Nonce` and `X-LockLink-Signature` headers.
 The ESP32 accepts a challenge once, for at most ten seconds. Requests without
 a valid signature return HTTP 401 and cannot actuate the relay.
+Each endpoint holds up to eight outstanding challenges. A full pool returns
+HTTP 503 without replacing live challenges; unlock and terminal challenges use
+separate pools. An unknown nonce does not invalidate another client's challenge.
+
+The authenticated `/terminal/challenge` and `POST /terminal` routes support logs,
+setup and connected-home management in both LED and relay modes. They always
+require a configured firmware key. See the [terminal contract](TERMINAL_PLAN.md).
 
 The output logic lives in `LockLink_IoT/src/release_output.cpp`. The default
 driver uses the onboard addressable RGB LED on GPIO 48. Explicit relay mode
@@ -39,6 +46,6 @@ credentials and must not be published.
 USB `STATUS` reports Matter pairing, Wi-Fi, the app IPv4 address and whether
 the release is active. `PAIR` displays setup information; `RESET MATTER`
 deliberately clears Matter pairing/network settings. The status field `locked`
-and Matter Off both mean the output is inactive; neither verifies the latch
+and Matter Locked both mean the output is inactive; neither verifies the latch
 or door position. See [Matter setup](MATTER_SETUP.md) for pairing, recovery
 and physical test requirements.

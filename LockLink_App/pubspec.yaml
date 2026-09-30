@@ -2,7 +2,7 @@ name: locklink
 description: "Local Wi-Fi door control for LockLink."
 publish_to: 'none'
 
-version: 1.5.0+15
+version: 1.9.2+192
 
 environment:
   sdk: ^3.13.3
@@ -16,6 +16,7 @@ dependencies:
   crypto: ^3.0.7
   flutter_secure_storage: ^11.2.0
   qr_flutter: ^4.1.0
+  cupertino_icons: ^1.0.9
 
 dev_dependencies:
   flutter_test:
