@@ -51,8 +51,8 @@ ReleaseOutput::Result ReleaseOutput::release() {
     xSemaphoreGive(mutex_);
     return Result::busy;
   }
-  // A cutoff must be armed before energizing the relay. No network work under
-  // this mutex, so the esp_timer task can always turn the relay off promptly.
+  // Arm the cutoff before asserting the release signal. No network work under
+  // this mutex, so the esp_timer task can promptly restore the idle signal.
   if (esp_timer_start_once(timer_, matter_config::pulseUs) != ESP_OK) {
     state_.lock();
     setRelay(false);

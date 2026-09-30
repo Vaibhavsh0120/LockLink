@@ -68,8 +68,11 @@ void main() {
   );
 
   test(
-    'an unset key clears stale widget access without configuring it',
+    'an empty stored key clears stale widget access without configuring it',
     () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'unlock_key:${DeviceSettings.defaultAddress}': '',
+      });
       final calls = <String>[];
       messenger.setMockMethodCallHandler(channel, (call) async {
         calls.add(call.method);

@@ -42,6 +42,134 @@ class RedirectProbeClient extends http.BaseClient {
 }
 
 void main() {
+  test(
+    'prepared challenges remove a request from tap and are consumed once',
+    () async {
+      final requests = <String>[];
+      final api = LockLinkApiService(
+        'http://192.168.0.112',
+        client: MockClient((request) async {
+          requests.add(request.url.path);
+          if (request.url.path == '/challenge') {
+            return http.Response('{"nonce":"${'a' * 32}"}', 200);
+          }
+          expect(request.headers['X-LockLink-Nonce'], 'a' * 32);
+          expect(
+            request.headers['X-LockLink-Signature'],
+            matches(r'^[0-9a-f]{64}$'),
+          );
+          return http.Response(
+            '{"success":true,"state":"unlocking","duration_ms":1000}',
+            200,
+          );
+        }),
+      );
+      await api.prepareUnlock();
+      await api.prepareUnlock();
+      expect(requests, ['/challenge']);
+      await api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64);
+      expect(requests, ['/challenge', '/unlock']);
+      await api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64);
+      expect(requests, ['/challenge', '/unlock', '/challenge', '/unlock']);
+      api.close();
+    },
+  );
+  test('expired or discarded preparations fetch a fresh challenge', () async {
+    var elapsed = Duration.zero;
+    final requests = <String>[];
+    final api = LockLinkApiService(
+      'http://192.168.0.112',
+      elapsed: () => elapsed,
+      client: MockClient((request) async {
+        requests.add(request.url.path);
+        return http.Response(
+          request.url.path == '/challenge'
+              ? '{"nonce":"${'a' * 32}"}'
+              : '{"success":true,"state":"unlocking","duration_ms":1000}',
+          200,
+        );
+      }),
+    );
+    await api.prepareUnlock();
+    elapsed = const Duration(seconds: 6);
+    await api.prepareUnlock(); // Do not fill the ESP32 pool with unused nonces.
+    expect(requests, ['/challenge']);
+    await api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64);
+    expect(requests, ['/challenge', '/challenge', '/unlock']);
+    await api.prepareUnlock();
+    api.discardPreparedUnlock();
+    await api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64);
+    expect(requests.sublist(3), ['/challenge', '/challenge', '/unlock']);
+    api.close();
+  });
+  test(
+    'tap shares an in-flight preparation without retrying a failed release',
+    () async {
+      final challenge = Completer<http.Response>();
+      var challenges = 0, releases = 0;
+      final api = LockLinkApiService(
+        'http://192.168.0.112',
+        client: MockClient((request) async {
+          if (request.url.path == '/challenge') {
+            challenges++;
+            return challenge.future;
+          }
+          releases++;
+          return http.Response('{}', 503);
+        }),
+      );
+      final preparing = api.prepareUnlock();
+      final release = expectLater(
+        api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64),
+        throwsFormatException,
+      );
+      challenge.complete(http.Response('{"nonce":"${'a' * 32}"}', 200));
+      await preparing;
+      await release;
+      expect(challenges, 1);
+      expect(releases, 1);
+      final stalePreparation = api.prepareUnlock();
+      api.discardPreparedUnlock(); // A lifecycle change during preparation.
+      await stalePreparation;
+      await expectLater(
+        api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64),
+        throwsFormatException,
+      );
+      expect(
+        challenges,
+        3,
+      ); // The discarded response cannot supply the next tap.
+      expect(releases, 2); // One POST per explicit tap; no automatic retries.
+      api.close();
+    },
+  );
+  test(
+    'a failed preparation cannot prevent a fresh authenticated release',
+    () async {
+      var challenges = 0;
+      final api = LockLinkApiService(
+        'http://192.168.0.112',
+        client: MockClient((request) async {
+          if (request.url.path == '/challenge') {
+            return ++challenges == 1
+                ? http.Response('{}', 503)
+                : http.Response('{"nonce":"${'a' * 32}"}', 200);
+          }
+          return http.Response(
+            '{"success":true,"state":"unlocking","duration_ms":1000}',
+            200,
+          );
+        }),
+      );
+      await expectLater(api.prepareUnlock(), throwsA(isA<DeviceException>()));
+      expect(
+        await api.unlockDoor(relayMode: true, unlockKeyHex: 'b' * 64),
+        const Duration(seconds: 1),
+      );
+      expect(challenges, 2);
+      api.close();
+    },
+  );
   test('local requests reject redirects and unsafe stored addresses', () async {
     for (final address in [
       'http://user@192.168.1.50',

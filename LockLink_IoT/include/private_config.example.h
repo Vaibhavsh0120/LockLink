@@ -9,7 +9,8 @@
 #define LOCKLINK_WIFI_SSID ""
 #define LOCKLINK_WIFI_PASSWORD ""
 
-// ESP32-C3 Super Mini: HIGH energizes the relay for one second; LOW is idle.
+// ESP32-C3 Super Mini: GPIO4 is HIGH at idle, LOW for the one-second pulse.
+// This is the GPIO signal polarity; verify the module's coil/contact behavior.
 // Use mode 0 with the relay disconnected for a blue-LED-only first test.
 // Relay mode remains unarmed until the valid private app key below is set.
 #define LOCKLINK_RELAY_ENABLED 1

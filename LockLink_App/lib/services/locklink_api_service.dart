@@ -8,15 +8,81 @@ import 'device_request.dart';
 import 'device_settings.dart';
 
 class LockLinkApiService {
-  LockLinkApiService(String baseUrl, {http.Client? client})
-    : baseUrl =
-          DeviceSettings.normalizeAddress(baseUrl) ??
-          (throw const FormatException('Use a local HTTP device address')),
-      _client = client ?? http.Client();
+  LockLinkApiService(
+    String baseUrl, {
+    http.Client? client,
+    Duration Function()? elapsed,
+  }) : baseUrl =
+           DeviceSettings.normalizeAddress(baseUrl) ??
+           (throw const FormatException('Use a local HTTP device address')),
+       _client = client ?? http.Client(),
+       _elapsed = elapsed ?? _monotonicNow;
 
   final String baseUrl;
   final http.Client _client;
+  final Duration Function() _elapsed;
+  static final _clock = Stopwatch()..start();
+  static Duration _monotonicNow() => _clock.elapsed;
+  _UnlockChallenge? _preparedChallenge;
+  Future<void>? _preparingUnlock;
+  int _challengeGeneration = 0;
+  bool _closed = false;
   static const timeout = Duration(seconds: 4);
+
+  /// Preparation cannot release the relay. Keep at most one cached nonce,
+  /// shared by concurrent callers, and avoid renewing an unused server slot
+  /// until its ten-second lifetime ends.
+  Future<void> prepareUnlock() {
+    if (_closed) return Future.value();
+    final pending = _preparingUnlock;
+    if (pending != null) return pending;
+    final prepared = _preparedChallenge;
+    if (prepared != null &&
+        _elapsed() - prepared.requestedAt <= const Duration(seconds: 10)) {
+      return Future.value();
+    }
+    final generation = _challengeGeneration;
+    late final Future<void> preparation;
+    preparation = _fetchChallenge()
+        .then((challenge) {
+          if (!_closed && generation == _challengeGeneration) {
+            _preparedChallenge = challenge;
+          }
+        })
+        .whenComplete(() {
+          if (identical(_preparingUnlock, preparation)) _preparingUnlock = null;
+        });
+    _preparingUnlock = preparation;
+    return preparation;
+  }
+
+  void discardPreparedUnlock() {
+    _challengeGeneration++;
+    _preparedChallenge = null;
+  }
+
+  Future<_UnlockChallenge> _fetchChallenge() async {
+    final requestedAt = _elapsed();
+    final response = await deviceRequest(
+      _client,
+      'GET',
+      Uri.parse('$baseUrl/challenge'),
+      timeout: timeout,
+    );
+    if (response.statusCode != 200) {
+      throw DeviceException(
+        'Challenge failed',
+        statusCode: response.statusCode,
+      );
+    }
+    final challenge = jsonDecode(response.body);
+    if (challenge is! Map<String, dynamic> ||
+        challenge['nonce'] is! String ||
+        !RegExp(r'^[0-9a-f]{32}$').hasMatch(challenge['nonce'] as String)) {
+      throw const FormatException('Unexpected challenge response');
+    }
+    return _UnlockChallenge(challenge['nonce'] as String, requestedAt);
+  }
 
   Future<DoorStatus> getStatus() async {
     final response = await deviceRequest(
@@ -45,25 +111,25 @@ class LockLinkApiService {
           !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(unlockKeyHex)) {
         throw const DeviceException('Pairing key required');
       }
-      final challengeResponse = await deviceRequest(
-        _client,
-        'GET',
-        Uri.parse('$baseUrl/challenge'),
-        timeout: timeout,
-      );
-      if (challengeResponse.statusCode != 200) {
-        throw DeviceException(
-          'Challenge failed',
-          statusCode: challengeResponse.statusCode,
-        );
+      final preparing = _preparingUnlock;
+      if (preparing != null) {
+        try {
+          await preparing;
+        } catch (_) {
+          // Preparation is optional. Fetch a fresh challenge below; no unlock
+          // request has been sent, and the release POST is never retried.
+        }
       }
-      final challenge = jsonDecode(challengeResponse.body);
-      if (challenge is! Map<String, dynamic> ||
-          challenge['nonce'] is! String ||
-          !RegExp(r'^[0-9a-f]{32}$').hasMatch(challenge['nonce'] as String)) {
-        throw const FormatException('Unexpected challenge response');
-      }
-      final nonce = challenge['nonce'] as String;
+      final prepared = _preparedChallenge;
+      discardPreparedUnlock(); // Never reuse a nonce, even after a failed POST.
+      // Allow five seconds of age from request START, leaving the four-second
+      // POST timeout within the firmware's ten-second nonce lifetime.
+      final challenge =
+          prepared != null &&
+              _elapsed() - prepared.requestedAt < const Duration(seconds: 5)
+          ? prepared
+          : await _fetchChallenge();
+      final nonce = challenge.nonce;
       final keyBytes = List<int>.generate(
         32,
         (i) => int.parse(unlockKeyHex.substring(i * 2, i * 2 + 2), radix: 16),
@@ -102,7 +168,17 @@ class LockLinkApiService {
     return Duration(milliseconds: body['duration_ms'] as int);
   }
 
-  void close() => _client.close();
+  void close() {
+    _closed = true;
+    discardPreparedUnlock();
+    _client.close();
+  }
+}
+
+class _UnlockChallenge {
+  const _UnlockChallenge(this.nonce, this.requestedAt);
+  final String nonce;
+  final Duration requestedAt;
 }
 
 class DeviceException implements Exception {

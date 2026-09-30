@@ -58,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _api?.discardPreparedUnlock();
     _statusGeneration++;
     _pollTimer?.cancel();
     setState(() {
@@ -169,9 +170,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _relayMode = status.mode == 'relay';
         _armed = status.armed;
       });
+      if (status.online &&
+          status.state == 'locked' &&
+          status.mode == 'relay' &&
+          status.armed &&
+          _unlockKey != null &&
+          !_pairingError) {
+        unawaited(
+          api.prepareUnlock().catchError((Object _) {
+            // Optional preparation never changes readiness or sends a release.
+          }),
+        );
+      } else {
+        api.discardPreparedUnlock();
+      }
       if (userInitiated && !status.online) _haptics.error();
     } catch (_) {
       if (!mounted || api != _api || generation != _statusGeneration) return;
+      api.discardPreparedUnlock();
       setState(() {
         _online = false;
         _hasChecked = true;
@@ -246,6 +262,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _editAddress() async {
     _haptics.tap();
     _settingsOpen = true;
+    _api?.discardPreparedUnlock();
     _statusGeneration++;
     _pollTimer?.cancel();
     await Navigator.of(context).push<bool>(

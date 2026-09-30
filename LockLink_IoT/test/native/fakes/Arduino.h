@@ -12,6 +12,6 @@ inline void digitalWrite(uint8_t pin, int level) {
 inline void pinMode(uint8_t pin, int mode) {
   assert(mode == OUTPUT);
   // Establish inactive levels before enabling either output driver.
-  if (pin == 4) { assert(relayLevel == LOW); relayOutputEnabled = true; }
+  if (pin == 4) { assert(relayLevel == HIGH); relayOutputEnabled = true; }
   if (pin == 8) { assert(indicatorLevel == HIGH); indicatorOutputEnabled = true; }
 }

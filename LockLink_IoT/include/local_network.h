@@ -7,6 +7,7 @@ struct Snapshot {
   uint32_t ipv4 = 0;
   bool ready() const { return linkUp && ipv4 != 0; }
 };
-// Read the interface created by Matter, without starting another Wi-Fi manager.
+// Read Matter's interface and disable modem sleep once ready (and on reconnect),
+// without starting another Wi-Fi manager.
 Snapshot snapshot();
 }

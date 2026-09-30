@@ -1,11 +1,13 @@
 # LockLink
 
-Current source version: **v2.0.0**.
+Current source version: **v2.0.1**.
 
 LockLink is a local network door controller for ESP32-C3 Super Mini (4 MB flash,
-no PSRAM). GPIO4 drives the active-HIGH relay for **one second**; GPIO8 drives
+no PSRAM). GPIO4 is **HIGH at idle and LOW for one second**; GPIO8 drives
 the onboard active-LOW blue LED. Relay mode is the default, and requires a valid
-private app key before any app or Matter command can energize the relay.
+private app key before any app or Matter command can start a release pulse.
+Signal polarity does not identify physical coil state: a HIGH-ON relay stays
+energized at idle with this inverted configuration. Check the wiring guide.
 
 Start with the [C3 installation and migration guide](LockLink_Docs/ESP32_C3_SETUP.md).
 
@@ -108,9 +110,9 @@ wipes NVS and is for initial installation or deliberate recovery.
 
 ## Mobile releases
 
-Version **2.0.0** includes the current app, terminal, connected-home management
+Version **2.0.1** includes the current app, terminal, connected-home management
 and native widget behavior. Both the center circular control and the Unlock
-button request the same release. See [v2.0.0 release notes](LockLink_Docs/releases/v2.0.0.md)
+button request the same release. See [v2.0.1 release notes](LockLink_Docs/releases/v2.0.1.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 
@@ -121,7 +123,7 @@ a direct installation with the extension signed; LiveContainer guest installs
 cannot expose the widget to iOS.
 
 Push this repository to GitHub, then open **Actions → Manual mobile release →
-Run workflow** and enter `v2.0.0`. After workflow validation, C3 firmware checks,
+Run workflow** and enter `v2.0.1`. After workflow validation, C3 firmware checks,
 and both mobile builds succeed, the workflow creates or updates a GitHub Release containing
 `LockLink-Android.apk` and `LockLink-iOS-unsigned.ipa`.
 The tag must match the app source version and resolve to the workflow's source

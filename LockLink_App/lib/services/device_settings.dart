@@ -12,6 +12,8 @@ class DeviceSettings {
 
   static const _addressKey = 'device_address';
   static const defaultAddress = 'http://192.168.0.112';
+  static const defaultPairingKey =
+      'd489653731bf3aeec85cca136a511294c329106e20a0b2627adc2f180146a507';
   static const _themeKey = 'theme_mode';
   static const _hapticsKey = 'haptic_feedback_enabled';
   static const _secureStorage = FlutterSecureStorage();
@@ -43,7 +45,7 @@ class DeviceSettings {
     final saved = kIsWeb
         ? _webSessionKeys[address]
         : await _secureStorage.read(key: 'unlock_key:$address');
-    return saved ?? '';
+    return saved ?? defaultPairingKey;
   }
 
   Future<String> loadUnlockKey(String address) async {

@@ -1,4 +1,4 @@
-# App terminal and connected-home contract (v2.0.0)
+# App terminal and connected-home contract (v2.0.1)
 
 ## Current behavior
 
@@ -166,7 +166,7 @@ QR payload handling and home management. Native firmware tests and compilation
 can check simulated output/network boundaries, but cannot prove commissioning,
 physical network recovery, assistant unlocking, relay behavior or iPhone install.
 Rendered mock previews and QR decoding also do not establish recognition by a
-second physical phone. See [v2.0.0 release notes](releases/v2.0.0.md) for the
+second physical phone. See [v2.0.1 release notes](releases/v2.0.1.md) for the
 checks actually run for this version.
 
 Install matching app and firmware versions to use the terminal and home

@@ -69,7 +69,7 @@ to show it while the device is unpaired.
    then turn off by itself.
 7. Test **“Siri, unlock Door Release”** and any authentication required on the phone.
 
-The v2.0.0 firmware appears as a Matter door lock. Its Locked/Unlocked states
+The v2.0.1 firmware appears as a Matter door lock. Its Locked/Unlocked states
 describe only the inactive/active release output; they do not verify the latch
 or door position. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
 documents Add Anyway; actual pairing and Siri operation on your iPhones
@@ -95,7 +95,9 @@ before resetting anything.
    Normal firmware updates with the same Matter partition layout preserve
    pairing; do not erase the flash for an ordinary update.
 5. Test one one-second release, early Lock, repeated Unlock, Wi-Fi loss during a
-   release, and reboot. The relay must never stay energized after the pulse.
+   release, and reboot. GPIO4 must return HIGH after the pulse and the blue
+   LED must turn off. With a HIGH-ON module the relay is energized at idle;
+   verify actual contact/lock behavior using the wiring guide.
 
 The key is saved by the app; you do not enter a password each time. Matter uses
 its own one-time pairing. Anyone permitted to operate Door Release can open

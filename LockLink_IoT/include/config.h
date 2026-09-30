@@ -4,7 +4,7 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include <sdkconfig.h>
 #if !defined(CONFIG_IDF_TARGET_ESP32C3)
-#error "LockLink v2.0.0 requires the ESP32-C3 Super Mini target"
+#error "LockLink v2.0.1 requires the ESP32-C3 Super Mini target"
 #endif
 #endif
 
@@ -36,7 +36,7 @@
 #endif
 
 namespace config {
-constexpr char version[] = "2.0.0";
+constexpr char version[] = "2.0.1";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");
@@ -46,7 +46,8 @@ constexpr const char* unlockKeyHex = LOCKLINK_UNLOCK_KEY_HEX;
 constexpr const char* allowedWebOrigin = LOCKLINK_ALLOWED_WEB_ORIGIN;
 constexpr uint8_t indicatorPin = LOCKLINK_INDICATOR_GPIO;
 constexpr uint8_t outputPin = LOCKLINK_RELAY_GPIO;
-constexpr bool outputActiveHigh = true;
+// Inverted GPIO4 signal: HIGH at idle, LOW during the one-second release.
+constexpr bool outputActiveHigh = false;
 constexpr bool indicatorActiveHigh = false;
 // Super Mini exposed pins only; exclude boot straps and the blue LED.
 static_assert(!relayEnabled || (outputPin <= 10 && outputPin != 2 &&

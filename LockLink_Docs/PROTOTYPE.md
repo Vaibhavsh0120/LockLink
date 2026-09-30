@@ -27,9 +27,11 @@ setup and connected-home management in both LED and relay modes. They always
 require a configured firmware key. See the [terminal contract](TERMINAL_PLAN.md).
 
 The output logic lives in `LockLink_IoT/src/release_output.cpp`. The default
-driver uses GPIO4 for the active-HIGH relay and GPIO8 for the active-LOW blue
-LED on ESP32-C3 Super Mini. Both outputs are switched off by the same ESP timer
-task independently of network handling, even if Wi-Fi drops. There is no RGB
+driver uses GPIO4 with HIGH at idle and LOW during release, and GPIO8 for the
+active-LOW blue LED on ESP32-C3 Super Mini. The ESP timer restores GPIO4 HIGH
+and switches the LED off independently of network handling, even if Wi-Fi drops.
+HIGH at idle energizes a HIGH-ON physical module; signal inactivity is not a
+coil-OFF guarantee. There is no RGB
 LED driver. Optional LED mode never configures or writes the relay pin. See
 [relay setup](RELAY_SETUP.md) for the physical wiring and pairing steps.
 

@@ -1,6 +1,6 @@
 # Apple Home, Google Home, and Alexa
 
-The v2.0.0 `LockLink_IoT` firmware exposes **Door Release** as a Matter
+The v2.0.1 `LockLink_IoT` firmware exposes **Door Release** as a Matter
 **Door Lock** accessory alongside the LockLink app HTTP API. **Unlock** starts
 a one-second release; the output then turns off and reports **Locked**.
 **Lock** ends an active release early. Repeated Unlock commands during a
@@ -77,8 +77,9 @@ Matter and the app API run together and share the output controller.
    `LOCKLINK_INDICATOR_GPIO 8` (blue, active LOW), and `LOCKLINK_RELAY_GPIO 4`.
    Replace old S3 pin settings. See [C3 migration](ESP32_C3_SETUP.md).
 3. For the real relay, follow [the wiring guide](RELAY_SETUP.md), set
-   `LOCKLINK_RELAY_ENABLED 1` (the default), and confirm GPIO4. The active-HIGH
-   driver powers the lock to **unlock**, not to lock.
+   `LOCKLINK_RELAY_ENABLED 1` (the default), and confirm GPIO4. Its inverted
+   signal is HIGH at idle, LOW for release. Verify which relay contact powers
+   the lock during that pulse; do not infer coil/contact state from the app.
 4. Configure a strong, 64-character hexadecimal `LOCKLINK_UNLOCK_KEY_HEX` for
    the app. Generate one locally with
    `python -c "import secrets; print(secrets.token_hex(32))"`. Save that same
@@ -255,7 +256,7 @@ joined the network before an IPv4 address is available for the app.
 - `Release: active` or `inactive` reports the release output, not door position.
 - `Output: LED` means only the board LED is used. `armed: no` in relay
   mode means the private app signing key is missing or invalid; commands cannot
-  energize the relay until it is configured.
+  start a release pulse until it is configured. Idle GPIO4 remains HIGH.
 
 A single `ESP_ERR_WIFI_CONN` with “sta is connecting, return error” during
 startup means another connection attempt was already running. It is not proof
@@ -292,8 +293,10 @@ again after a reset. To reset into BLE-only setup, first build with both
 For **No Response**, check power, the home network, client isolation, local
 IPv6/mDNS, and whether the required ecosystem controller is online. USB setup
 information is available without exposing it through an unauthenticated HTTP
-endpoint. A firmware crash, reset, or power loss must leave the relay inactive;
-retain the external signal pulldown described in the wiring guide.
+endpoint. Verify actual lock/contact behavior through crash, reset and power
+loss. The inverted signal uses an external pullup to 3.3 V during reset;
+HIGH can energize the relay and cannot guarantee the physical lock state.
+See the wiring guide for the previously confirmed HIGH-ON module.
 
 ## Validation boundaries
 

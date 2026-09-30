@@ -59,7 +59,7 @@ void main() {
           );
           expect(
             tester.widget<TextFormField>(fields.at(1)).controller!.text,
-            '',
+            'd489653731bf3aeec85cca136a511294c329106e20a0b2627adc2f180146a507',
           );
           await tester.tap(find.byTooltip('Show pairing key'));
           await tester.pumpAndSettle();

@@ -50,9 +50,11 @@ void main() {
   );
 
   test(
-    'terminal without a saved key explains setup and sends no requests',
+    'terminal with an empty stored key explains setup and sends no requests',
     () async {
-      FlutterSecureStorage.setMockInitialValues({});
+      FlutterSecureStorage.setMockInitialValues({
+        'unlock_key:${DeviceSettings.defaultAddress}': '',
+      });
       final session = TerminalSession(
         DeviceSettings(preferences: MemoryPreferences()),
       );

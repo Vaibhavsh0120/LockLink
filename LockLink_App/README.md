@@ -1,6 +1,6 @@
 # LockLink app
 
-The v2.0.0 Flutter client for the local ESP32-C3 LockLink controller runs on Android,
+The v2.0.1 Flutter client for the local ESP32-C3 LockLink controller runs on Android,
 iOS, and the web. Choose light, dark, or system appearance in Settings.
 
 1. Run `flutter pub get` and `flutter run`.
@@ -10,9 +10,19 @@ iOS, and the web. Choose light, dark, or system appearance in Settings.
    the ESP32's private configuration. Tap the center lock or **Unlock door**;
    the app handles the one-time challenge automatically.
 
-Fresh installs have no pairing key. Connection status remains available, but
-relay release, terminal and widget access require the key saved in Settings.
-Existing saved keys are retained; no public fallback key is used.
+Fresh installs use pairing value
+`d489653731bf3aeec85cca136a511294c329106e20a0b2627adc2f180146a507`.
+Saved addresses and keys take priority over the app defaults. The app value
+must match the ESP32 configuration: this 64-character hexadecimal key is used
+directly for signing. App defaults do not change firmware keys. The requested
+default key is included in app builds; saved keys remain in secure storage.
+
+While the control screen is active and the relay is ready, the app prepares a
+single-use unlock challenge in memory. A tap can then send the signed command
+without first waiting for a challenge request. Preparation never releases the
+relay. Old or unavailable challenges use the normal authenticated sequence;
+backgrounding, opening Settings, going offline and closing the screen discard
+prepared access. Unlock requests are never automatically retried.
 
 Android and iOS keep the pairing key in platform secure storage. The web app
 keeps it only for the current tab session. Relay mode allows browser access
