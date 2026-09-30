@@ -45,19 +45,16 @@ String UnlockAuth::issueChallenge(uint32_t nowMs) {
   if (!ready_) return "";
   uint8_t randomBytes[16];
   esp_fill_random(randomBytes, sizeof(randomBytes));
-  challenge_ = encodeHex(randomBytes, sizeof(randomBytes));
-  issuedAtMs_ = nowMs;
-  return challenge_;
+  if (!challenges_.add(randomBytes, nowMs)) return "";
+  return encodeHex(randomBytes, sizeof(randomBytes));
 }
 
 bool UnlockAuth::verify(
     const String& nonce, const String& signature, uint32_t nowMs, const String& action) {
-  if (!ready_ || challenge_.isEmpty() || nonce != challenge_ ||
-      uint32_t(nowMs - issuedAtMs_) > 10000) {
-    challenge_ = "";
-    return false;
-  }
-  challenge_ = "";  // Consume the nonce before checking the signature.
+  uint8_t nonceBytes[16];
+  if (!ready_ || !decodeHex(nonce, nonceBytes, sizeof(nonceBytes)) ||
+      !challenges_.take(nonceBytes, nowMs)) return false;
+  // Consume only this nonce before checking the signature.
   uint8_t submitted[32];
   if (!decodeHex(signature, submitted, sizeof(submitted))) return false;
   const String message = action + ':' + nonce;

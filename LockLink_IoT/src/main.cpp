@@ -65,7 +65,7 @@ void loop() {
       command.trim();
       command.toUpperCase();
       if (overflow) {
-        Serial.println("Command too long. Maximum 64 characters.");
+        Serial.println("Command too long. Maximum 128 characters.");
       } else if (command == "RESET MATTER") {
         ready = false;
         matter_release::resetPairing();
@@ -75,7 +75,7 @@ void loop() {
       }
       command = "";
       overflow = false;
-    } else if (!overflow && command.length() < 64) {
+    } else if (!overflow && command.length() < 128) {
       command += c;
     } else {
       overflow = true;

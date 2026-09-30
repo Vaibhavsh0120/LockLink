@@ -22,6 +22,7 @@ class _TerminalScreenState extends State<TerminalScreen>
   bool _follow = true;
   int _lineCount = 0;
   List<String>? _readingLines;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -72,9 +73,24 @@ class _TerminalScreenState extends State<TerminalScreen>
 
   Future<void> _send([String? command]) async {
     final value = command ?? _command.text;
-    if (value.trim().isEmpty || _session.busy || !_session.connected) return;
-    final result = await _session.send(value);
-    if (mounted && result != null && command == null) _command.clear();
+    if (value.trim().isEmpty ||
+        _submitting ||
+        _session.sendingCommand ||
+        !_session.connected) {
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final result = await _session.send(value);
+      if (mounted &&
+          result != null &&
+          command == null &&
+          _command.text == value) {
+        _command.clear();
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Future<void> _copy() async {
@@ -110,7 +126,8 @@ class _TerminalScreenState extends State<TerminalScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canSend = _session.connected && !_session.busy;
+    final canSend =
+        _session.connected && !_session.sendingCommand && !_submitting;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Terminal'),
@@ -290,7 +307,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                               child: TextField(
                                 enabled: _session.connected,
                                 controller: _command,
-                                maxLength: 64,
+                                maxLength: 128,
                                 autocorrect: false,
                                 enableSuggestions: false,
                                 textInputAction: TextInputAction.send,
@@ -305,9 +322,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                             const SizedBox(width: 12),
                             IconButton.filled(
                               tooltip: 'Send command',
-                              onPressed: _session.busy || !_session.connected
-                                  ? null
-                                  : _send,
+                              onPressed: canSend ? _send : null,
                               icon: const Icon(Icons.arrow_upward_rounded),
                             ),
                           ],

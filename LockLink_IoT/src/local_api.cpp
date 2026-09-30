@@ -40,7 +40,9 @@ void LocalApi::begin() {
       json(503, "{\"error\":\"relay_not_armed\"}");
       return;
     }
-    json(200, String("{\"nonce\":\"") + auth_.issueChallenge(millis()) + "\"}");
+    const String nonce = auth_.issueChallenge(millis());
+    if (nonce.isEmpty()) { json(503, "{\"error\":\"device_busy\"}"); return; }
+    json(200, String("{\"nonce\":\"") + nonce + "\"}");
   });
   server_.on("/unlock", HTTP_POST, [this]() {
     if (config::relayEnabled) {
@@ -68,7 +70,9 @@ void LocalApi::begin() {
       json(503, "{\"error\":\"terminal_key_missing\"}");
       return;
     }
-    json(200, String("{\"nonce\":\"") + terminalAuth_.issueChallenge(millis()) + "\"}");
+    const String nonce = terminalAuth_.issueChallenge(millis());
+    if (nonce.isEmpty()) { json(503, "{\"error\":\"terminal_busy\"}"); return; }
+    json(200, String("{\"nonce\":\"") + nonce + "\"}");
   });
   server_.on("/terminal", HTTP_POST, [this]() { terminalRequest(); });
   for (const char* path : {"/status", "/challenge", "/unlock", "/terminal/challenge", "/terminal"}) {
@@ -85,7 +89,7 @@ void LocalApi::terminalRequest() {
   const String command = server_.arg("plain");
   const String after = server_.arg("after");
   const String boot = server_.arg("boot");
-  bool valid = command.length() <= 64 && after.length() > 0 && after.length() <= 10 && boot.length() <= 16;
+  bool valid = command.length() <= 128 && after.length() > 0 && after.length() <= 10 && boot.length() <= 16;
   for (size_t i = 0; i < command.length(); ++i) valid &= command[i] >= 32 && command[i] <= 126;
   for (size_t i = 0; i < after.length(); ++i) valid &= isDigit(after[i]);
   for (size_t i = 0; i < boot.length(); ++i) valid &= isHexadecimalDigit(boot[i]);
@@ -103,6 +107,10 @@ void LocalApi::terminalRequest() {
   if (logs.isEmpty()) { json(503, "{\"error\":\"terminal_busy\"}"); return; }
   json(200, String("{") + logs + ",\"ok\":" + (reply.ok ? "true" : "false") +
       ",\"commissioned\":" + (reply.commissioned ? "true" : "false") +
+      ",\"homes\":" + reply.homesJson + ",\"fabric_capacity\":" + reply.fabricCapacity +
+      ",\"pairing_window_open\":" + (reply.pairingWindowOpen ? "true" : "false") +
+      ",\"pairing_mode\":" + (reply.additionalPairing ? "\"additional\"" : "null") +
+      ",\"pairing_window_id\":" + (reply.pairingWindowId.isEmpty() ? String("null") : jsonQuote(reply.pairingWindowId)) +
       ",\"output\":" + jsonQuote(reply.output) + ",\"pairing_code\":" +
       (reply.pairingCode.isEmpty() ? String("null") : jsonQuote(reply.pairingCode)) +
       ",\"pairing_qr_payload\":" +

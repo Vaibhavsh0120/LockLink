@@ -14,7 +14,7 @@ verified door position.
 | Unlock reply is lost | Report “No confirmation. Check the device before retrying.” The ESP32 may already have accepted the command; do not infer failure or send another automatically. |
 | Router assigns another IP | Automatic reads keep using the saved address. Check the new address over USB/router and update Settings. LockLink does not scan the network automatically. |
 | Device has never joined Wi-Fi | App Terminal cannot reach it. Power it on, open USB serial at 115200 baud and run `PAIR` to obtain the initial Matter code. Use that code for Bluetooth commissioning in the chosen home app, or connect using the configured firmware network. |
-| Device is already in another home | Use that home's Matter sharing flow. Do not use the initial setup code or reset the device just to add another ecosystem. |
+| Device is already in another home | Use LockLink Smart home setup → Add home app for a fresh sharing code, or use that home's Matter sharing flow. Do not use the initial code or reset the device to add another home. |
 | Wrong app key or older firmware | Terminal/setup show a specific key or firmware error instead of repeatedly retrying it. Correct Settings or firmware, then retry. |
 
 ## Request and firmware behavior
@@ -51,3 +51,8 @@ offline messages and recovery timing are managed by their respective ecosystems.
   use mock responses; they are not live hardware sessions.
 - Physical power cycling, router loss/rejoin, native socket cancellation,
   ecosystem recovery and iOS compilation were not tested in this change.
+
+Connected-home changes sync from the door on each foreground LockLink client.
+Codes are hidden when another client replaces the pairing window. A home removed
+by one client disappears on the others; a failed mutation is never replayed.
+Apple Home membership and LockLink app-key access are separate permissions.

@@ -138,3 +138,19 @@ The phone may require authentication according to its settings. A
 [HomePod or Apple TV home hub](https://support.apple.com/en-us/102557) is separate
 hardware used for features such as remote Home access; adding an ESP32 does
 not make it appear under Home Hubs & Bridges.
+
+## Share, rename, or remove a connected home
+
+In LockLink, open **Settings → Smart home setup**. Connected homes refresh from
+this door on each phone. Use a home's menu to rename it or remove its pairing;
+removing it retains Wi-Fi, other homes, and the LockLink app key. This also lets
+you remove a leftover pairing when Apple Home still reports Already paired.
+Choose **Add home app** to create a fresh 5-minute sharing code for another home.
+Keep the phone and door on the same Wi-Fi. This requires the updated ESP32 firmware.
+
+Your Apple devices signed into the same Apple Account with Home enabled in
+[iCloud](https://support.apple.com/guide/icloud/set-up-home-mm772c91c96c/icloud)
+share the Home configuration without individually pairing again. To give your
+mother's separate account access to the same Home, [invite her in Home Settings](https://support.apple.com/en-gb/102386).
+That is still one connected-home record. Apple manages the people in that home;
+LockLink shows and manages homes rather than Apple Accounts or individual phones.

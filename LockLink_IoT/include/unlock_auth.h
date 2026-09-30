@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "challenge_pool.h"
 
 // A single-use challenge prevents a captured unlock request from being replayed.
 class UnlockAuth {
@@ -13,7 +14,6 @@ class UnlockAuth {
 
  private:
   uint8_t key_[32] = {};
-  String challenge_;
-  uint32_t issuedAtMs_ = 0;
+  ChallengePool challenges_;
   bool ready_ = false;
 };

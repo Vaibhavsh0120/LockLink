@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/matter_pairing_payload.dart';
+import '../models/matter_home.dart';
 import 'device_request.dart';
 
 class TerminalReply {
@@ -18,6 +19,11 @@ class TerminalReply {
     required this.commissioned,
     this.pairingCode,
     this.pairingQrPayload,
+    this.homes,
+    this.fabricCapacity,
+    this.pairingMode,
+    this.pairingWindowId,
+    this.pairingWindowOpen = false,
   });
 
   final String boot;
@@ -29,6 +35,11 @@ class TerminalReply {
   final bool commissioned;
   final String? pairingCode;
   final String? pairingQrPayload;
+  final List<MatterHome>? homes;
+  final int? fabricCapacity;
+  final String? pairingMode;
+  final String? pairingWindowId;
+  final bool pairingWindowOpen;
 
   TerminalReply withoutPairingSecrets() => TerminalReply(
     boot: boot,
@@ -41,6 +52,11 @@ class TerminalReply {
     ),
     ok: ok,
     commissioned: commissioned,
+    homes: homes,
+    fabricCapacity: fabricCapacity,
+    pairingMode: pairingMode,
+    pairingWindowId: pairingWindowId,
+    pairingWindowOpen: pairingWindowOpen,
   );
 
   factory TerminalReply.fromJson(dynamic value) {
@@ -70,6 +86,41 @@ class TerminalReply {
         (code is! String || !RegExp(r'^\d{11}$|^\d{21}$').hasMatch(code))) {
       throw const FormatException('Unexpected Matter code');
     }
+    List<MatterHome>? homes;
+    final capacity = value['fabric_capacity'];
+    final windowOpen = value['pairing_window_open'];
+    final mode = value['pairing_mode'];
+    final windowId = value['pairing_window_id'];
+    if (windowId != null &&
+        (windowId is! String ||
+            !RegExp(r'^[0-9a-f]{16}$').hasMatch(windowId))) {
+      throw const FormatException('Unexpected pairing window');
+    }
+    if (value['homes'] != null) {
+      if (value['homes'] is! List ||
+          capacity is! int ||
+          capacity < 1 ||
+          capacity > 254 ||
+          windowOpen is! bool ||
+          (value['homes'] as List).length > capacity) {
+        throw const FormatException('Unexpected home management response');
+      }
+      homes = List<MatterHome>.unmodifiable(
+        (value['homes'] as List).map(MatterHome.fromJson),
+      );
+      if (homes.map((home) => home.id).toSet().length != homes.length ||
+          homes.map((home) => home.index).toSet().length != homes.length ||
+          value['commissioned'] != homes.isNotEmpty) {
+        throw const FormatException('Inconsistent connected homes');
+      }
+    }
+    final canShowCode =
+        value['ok'] == true &&
+        (value['commissioned'] == false ||
+            (mode == 'additional' &&
+                homes != null &&
+                windowOpen == true &&
+                windowId != null));
     return TerminalReply(
       boot: value['boot'],
       cursor: value['cursor'],
@@ -78,11 +129,13 @@ class TerminalReply {
       output: value['output'],
       ok: value['ok'],
       commissioned: value['commissioned'],
-      pairingCode: value['ok'] == true && value['commissioned'] == false
-          ? code as String?
-          : null,
-      pairingQrPayload:
-          value['ok'] == true && value['commissioned'] == false && code != null
+      homes: homes,
+      fabricCapacity: homes == null ? null : capacity as int,
+      pairingMode: mode is String ? mode : null,
+      pairingWindowId: windowId as String?,
+      pairingWindowOpen: windowOpen == true,
+      pairingCode: canShowCode ? code as String? : null,
+      pairingQrPayload: canShowCode && code != null
           ? matterPairingPayload(value['pairing_qr_payload'])
           : null,
     );
@@ -110,8 +163,8 @@ class TerminalService {
       throw const FormatException('Use one command per line.');
     }
     final value = raw.trim().toUpperCase();
-    if (value.length > 64 || !RegExp(r'^[ -~]*$').hasMatch(value)) {
-      throw const FormatException('Use up to 64 plain-text characters.');
+    if (value.length > 128 || !RegExp(r'^[ -~]*$').hasMatch(value)) {
+      throw const FormatException('Use up to 128 plain-text characters.');
     }
     return value;
   }

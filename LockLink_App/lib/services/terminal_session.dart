@@ -15,6 +15,11 @@ class TerminalSession extends ChangeNotifier {
   bool _active = true;
   bool _retry = true;
   bool busy = false;
+  bool _polling = false;
+  bool _queuedCommand = false;
+  Completer<void>? _exchangeDone;
+  int _activityEpoch = 0;
+  bool get sendingCommand => (busy && !_polling) || _queuedCommand;
   bool connected = false;
   String? error;
   String address = '';
@@ -25,11 +30,22 @@ class TerminalSession extends ChangeNotifier {
   String? pairingCode;
   String? pairingQrPayload;
   int _pairingEpoch = 0;
+  bool _additionalPairing = false;
+  String _pairingHomes = '';
+  String? _pairingWindowId;
+  DateTime? _pairingDeadline;
+
+  String _homeIds(TerminalReply reply) =>
+      ((reply.homes ?? []).map((home) => home.id).toList()..sort()).join(',');
 
   void _hideCode() {
     _pairingEpoch++;
     pairingCode = null;
     pairingQrPayload = null;
+    _additionalPairing = false;
+    _pairingHomes = '';
+    _pairingWindowId = null;
+    _pairingDeadline = null;
     latest = latest?.withoutPairingSecrets();
     for (var i = 0; i < lines.length; i++) {
       lines[i] = lines[i].replaceAll(
@@ -55,6 +71,7 @@ class TerminalSession extends ChangeNotifier {
   }
 
   void setActive(bool value) {
+    _activityEpoch++;
     _active = value;
     _timer?.cancel();
     if (!value) {
@@ -76,7 +93,25 @@ class TerminalSession extends ChangeNotifier {
   }
 
   Future<TerminalReply?> send(String command) async {
-    if (_disposed || busy || !_active || _service == null) return null;
+    if (_disposed || !_active || _service == null) return null;
+    if (busy) {
+      if (command.trim().isEmpty || !_polling || _queuedCommand) return null;
+      // Give a deliberate send the next turn after the current read-only poll.
+      // Never carry it across a lifecycle change or retry an uncertain command.
+      _queuedCommand = true;
+      final epoch = _activityEpoch;
+      final boot = _boot;
+      await _exchangeDone!.future;
+      _queuedCommand = false;
+      if (_disposed ||
+          !_active ||
+          !connected ||
+          epoch != _activityEpoch ||
+          boot != _boot) {
+        return null;
+      }
+      return send(command);
+    }
     String normalized;
     try {
       normalized = TerminalService.normalizeCommand(command);
@@ -87,8 +122,15 @@ class TerminalSession extends ChangeNotifier {
     }
     _timer?.cancel();
     busy = true;
+    _polling = normalized.isEmpty;
+    _exchangeDone = Completer<void>();
     _retry = true;
-    if (normalized == 'PAIR') _hideCode();
+    final requestsCode = normalized == 'PAIR' || normalized == 'PAIR ADD';
+    if (requestsCode ||
+        normalized == 'PAIR CLOSE' ||
+        normalized.startsWith('HOME REMOVE ')) {
+      _hideCode();
+    }
     final pairingEpoch = _pairingEpoch;
     if (normalized.isNotEmpty) lines.add('> $normalized');
     notifyListeners();
@@ -108,14 +150,37 @@ class TerminalSession extends ChangeNotifier {
       _cursor = reply.cursor;
       final current = _active && pairingEpoch == _pairingEpoch;
       latest = current ? reply.withoutPairingSecrets() : null;
-      if (normalized == 'PAIR') {
-        final canPair = current && reply.ok && !reply.commissioned;
+      if (requestsCode) {
+        final additional =
+            normalized == 'PAIR ADD' && reply.pairingMode == 'additional';
+        final canPair =
+            current &&
+            reply.ok &&
+            (!reply.commissioned || (additional && reply.pairingWindowOpen));
         pairingCode = canPair ? reply.pairingCode : null;
         pairingQrPayload = canPair ? reply.pairingQrPayload : null;
+        _additionalPairing = canPair && additional && pairingCode != null;
+        _pairingHomes = _homeIds(reply);
+        _pairingWindowId = reply.pairingWindowId;
+        _pairingDeadline = DateTime.now().add(const Duration(minutes: 5));
       }
       lines.addAll(reply.lines);
       if (reply.output.isNotEmpty) lines.addAll(reply.output.split('\n'));
-      if (reply.commissioned || !current) {
+      final addedOrRemoved =
+          _additionalPairing &&
+          (_homeIds(reply) != _pairingHomes ||
+              reply.pairingWindowId != _pairingWindowId);
+      final expired =
+          _pairingDeadline != null && DateTime.now().isAfter(_pairingDeadline!);
+      if (!current ||
+          expired ||
+          addedOrRemoved ||
+          (reply.homes != null &&
+              !reply.pairingWindowOpen &&
+              pairingCode != null) ||
+          (_additionalPairing
+              ? !reply.pairingWindowOpen
+              : reply.commissioned)) {
         _hideCode();
       }
       connected = current;
@@ -136,9 +201,12 @@ class TerminalSession extends ChangeNotifier {
       }
       return null;
     } finally {
+      _exchangeDone?.complete();
+      _exchangeDone = null;
       if (!_disposed) {
         if (lines.length > 300) lines.removeRange(0, lines.length - 300);
         busy = false;
+        _polling = false;
         notifyListeners();
         _schedule();
       }

@@ -14,6 +14,8 @@
 #include <platform/DeviceInstanceInfoProvider.h>
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <setup_payload/QRCodeSetupPayloadGenerator.h>
+#include <setup_payload/ManualSetupPayloadGenerator.h>
+#include <lib/support/UTF8.h>
 #include "config.h"
 #include "device_console.h"
 
@@ -41,6 +43,35 @@ bool reportedActive = false;
 std::atomic<bool> syncPending{false};
 std::atomic<bool> resetting{false};
 uint32_t lastSync = 0;
+bool additionalWindow = false;
+uint32_t additionalDeadline = 0;
+String additionalHomes;
+String additionalWindowId;
+String additionalCode;
+String additionalQr;
+
+String homeId(const chip::FabricInfo& fabric) {
+  char id[17];
+  snprintf(id, sizeof(id), "%016llx", static_cast<unsigned long long>(fabric.GetCompressedFabricId()));
+  return id;
+}
+
+String homeIds() {
+  String ids;
+  for (const auto& fabric : chip::Server::GetInstance().GetFabricTable()) ids += homeId(fabric);
+  return ids;
+}
+
+bool ownsWindow() {
+  auto& window = chip::Server::GetInstance().GetCommissioningWindowManager();
+  if (!window.IsCommissioningWindowOpen() ||
+      int32_t(millis() - additionalDeadline) >= 0 || homeIds() != additionalHomes) {
+    additionalWindow = false;
+    additionalCode = "";
+    additionalQr = "";
+  }
+  return additionalWindow;
+}
 
 void seedConfiguredWiFi(intptr_t) {
   // Called once under the CHIP lock after driver initialization. Never take
@@ -183,6 +214,155 @@ class ReleaseCommands : public chip::app::CommandHandlerInterface {
 }
 
 namespace matter_release {
+HomesSnapshot homesSnapshot() {
+  HomesSnapshot result;
+  result.capacity = CHIP_CONFIG_MAX_FABRICS;
+  if (!started) return result;
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  auto& table = chip::Server::GetInstance().GetFabricTable();
+  result.commissioned = table.FabricCount() > 0;
+  result.windowOpen = chip::Server::GetInstance().GetCommissioningWindowManager().IsCommissioningWindowOpen();
+  result.additional = ownsWindow();
+  if (result.additional) result.windowId = additionalWindowId;
+  result.json = "[";
+  for (const auto& fabric : table) {
+    if (result.json.length() > 1) result.json += ',';
+    auto label = fabric.GetFabricLabel();
+    String name;
+    for (size_t i = 0; i < label.size(); ++i) name += label.data()[i];
+    result.description += homeId(fabric) + "  " + (name.isEmpty() ?
+        String("Home ") + fabric.GetFabricIndex() : name) + "\n";
+    result.json += String("{\"id\":") + jsonQuote(homeId(fabric)) +
+        ",\"index\":" + fabric.GetFabricIndex() + ",\"vendor_id\":" +
+        fabric.GetVendorId() + ",\"label\":" + jsonQuote(name) + '}';
+  }
+  result.json += ']';
+  return result;
+}
+
+String prepareAdditionalPairing(String& message, String& qrPayload) {
+  qrPayload = "";
+  if (!started) { message = "Matter unavailable. Restart the device."; return ""; }
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  auto& server = chip::Server::GetInstance();
+  auto& table = server.GetFabricTable();
+  auto& window = server.GetCommissioningWindowManager();
+  if (table.FabricCount() == 0) { message = "Use PAIR for the first home."; return ""; }
+  if (table.FabricCount() >= CHIP_CONFIG_MAX_FABRICS) {
+    message = "Connected homes are full. Remove an unused home first."; return "";
+  }
+  if (!server.GetFailSafeContext().IsFailSafeFullyDisarmed() ||
+      (window.IsCommissioningWindowOpen() && !ownsWindow())) {
+    message = "Pairing is already in progress. Finish it or wait for its window to close."; return "";
+  }
+  // Two phones may request setup together. Reuse the live temporary window's
+  // credentials rather than silently replacing a code another phone is using.
+  if (ownsWindow()) {
+    qrPayload = additionalQr;
+    message = String("Code: ") + additionalCode + "\nPairing is open. This code expires with the current window.";
+    return additionalCode;
+  }
+  additionalWindow = false;
+  chip::SetupPayload payload;
+  uint8_t salt[16];
+  chip::Crypto::Spake2pVerifier verifier;
+  if (chip::SetupPayload::generateRandomSetupPin(payload.setUpPINCode) != CHIP_NO_ERROR ||
+      chip::Crypto::DRBG_get_bytes(salt, sizeof(salt)) != CHIP_NO_ERROR ||
+      verifier.Generate(1000, chip::ByteSpan(salt), payload.setUpPINCode) != CHIP_NO_ERROR) {
+    message = "Could not create a setup code. Try again."; return "";
+  }
+  payload.discriminator.SetLongValue(esp_random() & 0x0fff);
+  payload.rendezvousInformation.SetValue(chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kOnNetwork));
+  auto* info = chip::DeviceLayer::GetDeviceInstanceInfoProvider();
+  info->GetVendorId(payload.vendorID);
+  info->GetProductId(payload.productID);
+  std::string manual, qr;
+  if (chip::ManualSetupPayloadGenerator(payload).payloadDecimalStringRepresentation(manual) != CHIP_NO_ERROR ||
+      chip::QRCodeSetupPayloadGenerator(payload).payloadBase38Representation(qr) != CHIP_NO_ERROR) {
+    message = "Could not create a setup code. Try again."; return "";
+  }
+  const auto& opener = *table.begin();
+  if (window.OpenEnhancedCommissioningWindow(chip::System::Clock::Seconds32(300),
+      payload.discriminator.GetLongValue(), verifier, 1000, chip::ByteSpan(salt),
+      opener.GetFabricIndex(), opener.GetVendorId()) != CHIP_NO_ERROR) {
+    message = "Pairing unavailable. Wait, then try again."; return "";
+  }
+  additionalWindow = true;
+  char windowId[17];
+  snprintf(windowId, sizeof(windowId), "%08lx%08lx", static_cast<unsigned long>(esp_random()),
+           static_cast<unsigned long>(esp_random()));
+  additionalWindowId = windowId;
+  additionalDeadline = millis() + 300000;
+  additionalHomes = homeIds();
+  additionalCode = manual.c_str();
+  additionalQr = qr.c_str();
+  qrPayload = qr.c_str();
+  message = String("Code: ") + manual.c_str() + "\nPairing open for 5 minutes. Use the same Wi-Fi.";
+  return String(manual.c_str());
+}
+
+bool closePairing(String& message) {
+  if (!started) { message = "Matter unavailable."; return false; }
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  if (!chip::Server::GetInstance().GetFailSafeContext().IsFailSafeFullyDisarmed()) {
+    message = "Pairing is in progress. Wait for it to finish."; return false;
+  }
+  if (!ownsWindow()) { message = "No LockLink pairing window is open."; return false; }
+  chip::Server::GetInstance().GetCommissioningWindowManager().CloseCommissioningWindow();
+  additionalWindow = false;
+  additionalCode = "";
+  additionalQr = "";
+  message = "Pairing window closed.";
+  return true;
+}
+
+bool manageHome(const String& id, const String& hexLabel, bool remove, String& message) {
+  if (!started) { message = "Matter unavailable."; return false; }
+  esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
+  auto& server = chip::Server::GetInstance();
+  if (!server.GetFailSafeContext().IsFailSafeFullyDisarmed() ||
+      server.GetCommissioningWindowManager().IsCommissioningWindowOpen()) {
+    message = "Close pairing or wait for it to finish before changing homes."; return false;
+  }
+  String name;
+  if (!remove) {
+    if (hexLabel.isEmpty() || hexLabel.length() > 64 || hexLabel.length() % 2) {
+      message = "Use a name of 1 to 32 UTF-8 bytes."; return false;
+    }
+    for (unsigned i = 0; i < hexLabel.length(); i += 2) {
+      if (!isHexadecimalDigit(hexLabel[i]) || !isHexadecimalDigit(hexLabel[i + 1])) {
+        message = "Invalid name."; return false;
+      }
+      const char value = strtoul(hexLabel.substring(i, i + 2).c_str(), nullptr, 16);
+      if (static_cast<uint8_t>(value) < 32 || value == 127) { message = "Invalid name."; return false; }
+      name += value;
+    }
+    if (!chip::Utf8::IsValid(chip::CharSpan(name.c_str(), name.length()))) {
+      message = "Invalid UTF-8 name."; return false;
+    }
+  }
+  auto& table = server.GetFabricTable();
+  chip::FabricIndex index = chip::kUndefinedFabricIndex;
+  for (const auto& fabric : table) {
+    if (homeId(fabric).equalsIgnoreCase(id)) index = fabric.GetFabricIndex();
+    else if (!remove) {
+      const auto label = fabric.GetFabricLabel();
+      if (label.size() == name.length() && memcmp(label.data(), name.c_str(), label.size()) == 0) {
+        message = "Another home already uses that name."; return false;
+      }
+    }
+  }
+  if (id.length() != 16 || index == chip::kUndefinedFabricIndex) {
+    message = "Home no longer found. Refresh the list."; return false;
+  }
+  if (remove) output->stop();
+  const auto error = remove ? table.Delete(index) :
+      table.SetFabricLabel(index, chip::CharSpan(name.c_str(), name.length()));
+  if (error != CHIP_NO_ERROR) { message = "Change failed. Refresh before trying again."; return false; }
+  message = remove ? "Home removed. Wi-Fi and other homes are kept." : "Home renamed.";
+  return true;
+}
+
 bool commissioned() {
   if (!started) return false;
   esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
@@ -205,7 +385,11 @@ String preparePairing(String& message, String& qrPayload) {
   if (!started) { message = "Matter unavailable. Restart the device."; return ""; }
   esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
   if (Matter.isDeviceCommissioned()) {
-    message = "Already paired. Get a sharing code from the connected home app.";
+    message = "Already paired. Use PAIR ADD or get a sharing code from the connected home app.";
+    return "";
+  }
+  if (!chip::Server::GetInstance().GetFailSafeContext().IsFailSafeFullyDisarmed()) {
+    message = "Pairing is in progress. Wait for it to finish.";
     return "";
   }
   auto& window = chip::Server::GetInstance().GetCommissioningWindowManager();
@@ -252,6 +436,13 @@ bool begin(ReleaseOutput& relay, bool isArmed) {
   static ReleaseCommands commands(releaseLock.getEndPointId());
   if (chip::app::CommandHandlerInterfaceRegistry::Instance()
           .RegisterCommandHandler(&commands) != CHIP_NO_ERROR) return false;
+  Matter.onEvent([](matterEvent_t event, const chip::DeviceLayer::ChipDeviceEvent*) {
+    if (event == MATTER_COMMISSIONING_WINDOW_CLOSED || event == MATTER_COMMISSIONING_COMPLETE) {
+      additionalWindow = false;
+      additionalCode = "";
+      additionalQr = "";
+    }
+  });
   Matter.begin();
   started = Lifecycle::ready();
   if (!started) return false;
@@ -288,8 +479,8 @@ void printPairing() {
     Serial.println("Optional setup QR URL (contains pairing credentials):");
     Serial.println(Matter.getOnboardingQRCodeUrl());
   } else {
-    Serial.println("Already paired. Use the paired ecosystem's sharing/pairing mode");
-    Serial.println("to obtain a fresh code for an additional ecosystem.");
+    Serial.println("Already paired. Run PAIR ADD or use your home app's sharing mode");
+    Serial.println("to obtain a fresh code for an additional home.");
   }
 }
 

@@ -231,9 +231,12 @@ uses that interface for HTTP readiness instead of relying on Arduino's
 separate `WiFi.status()` bookkeeping.
 
 Send `PAIR` followed by Enter over USB serial to display setup information.
-Once paired, additional ecosystems should use the existing platform's
-pairing/sharing workflow. Multiple pairings can coexist without duplicate
-relay controllers.
+Once paired, use LockLink **Smart home setup → Add home app** for a fresh
+5-minute sharing code, or use the existing platform's pairing/sharing workflow.
+The connected-home list supports rename and individual removal without erasing
+Wi-Fi or other homes. Multiple pairings coexist with one output controller.
+Invited Apple Home users share a home pairing; individual phones and Apple
+Accounts are not exposed by Matter's fabric table.
 
 Send the exact line `RESET MATTER` over USB serial to deliberately clear Matter
 pairings/Wi-Fi and restart commissioning. This first stops the release. The

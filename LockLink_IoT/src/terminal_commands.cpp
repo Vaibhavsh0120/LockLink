@@ -9,9 +9,11 @@ TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth&
   command.trim();
   command.toUpperCase();
   reply.commissioned = matter_release::commissioned();
-  if (command.isEmpty()) return reply;
-  if (command == "HELP") {
-    reply.output = "HELP   Commands\nSTATUS Device state\nPAIR   Matter setup code\nRESET MATTER   USB only; erases homes and Wi-Fi.";
+  if (command.isEmpty() || command == "HOMES") {
+    // Read-only refresh; shared state is added to every reply below.
+  }
+  else if (command == "HELP") {
+    reply.output = "HELP   Commands\nSTATUS Device state\nHOMES  Connected homes\nPAIR   First home setup code\nPAIR ADD   Add another home\nPAIR CLOSE   Close LockLink pairing\nHOME REMOVE <id>   Remove one home\nHOME NAME <id> <UTF-8 hex>   Rename home\nRESET MATTER   USB only; erases homes and Wi-Fi.";
   } else if (command == "STATUS") {
     const auto network = local_network::snapshot();
     reply.output = String("Wi-Fi: ") + (network.ready() ? IPAddress(network.ipv4).toString() : "offline") +
@@ -30,11 +32,41 @@ TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth&
       reply.output = "Already paired. Get a sharing code from the connected home app.";
     }
     reply.ok = reply.commissioned || !reply.pairingCode.isEmpty();
+  } else if (command == "PAIR ADD") {
+    reply.pairingCode = matter_release::prepareAdditionalPairing(reply.output, reply.pairingQrPayload);
+    reply.ok = !reply.pairingCode.isEmpty();
+  } else if (command == "PAIR CLOSE") {
+    reply.ok = matter_release::closePairing(reply.output);
+  } else if (command.startsWith("HOME REMOVE ")) {
+    reply.ok = matter_release::manageHome(command.substring(12), "", true, reply.output);
+  } else if (command.startsWith("HOME NAME ")) {
+    const int separator = command.indexOf(' ', 10);
+    reply.ok = separator > 10 && matter_release::manageHome(
+        command.substring(10, separator), command.substring(separator + 1), false, reply.output);
+    if (separator <= 10) reply.output = "Use HOME NAME <id> <UTF-8 hex>.";
   } else {
     reply.ok = false;
     reply.output = command == "RESET MATTER"
         ? "USB only. Erases homes and Wi-Fi."
         : "Unknown command. Type HELP.";
+  }
+  const auto homes = matter_release::homesSnapshot();
+  reply.commissioned = homes.commissioned;
+  reply.homesJson = homes.json;
+  reply.fabricCapacity = homes.capacity;
+  reply.pairingWindowOpen = homes.windowOpen;
+  reply.additionalPairing = homes.additional;
+  reply.pairingWindowId = homes.windowId;
+  if (command == "HOMES") {
+    reply.output = homes.commissioned ? String("Connected homes:\n") + homes.description : "No homes paired.";
+  }
+  if (!reply.pairingCode.isEmpty() &&
+      ((command == "PAIR ADD" && !homes.additional) ||
+       (command == "PAIR" && homes.commissioned))) {
+    reply.pairingCode = "";
+    reply.pairingQrPayload = "";
+    reply.output = "Pairing changed. Refresh connected homes.";
+    reply.ok = false;
   }
   return reply;
 }

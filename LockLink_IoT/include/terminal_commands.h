@@ -9,5 +9,10 @@ struct TerminalReply {
   String output;
   String pairingCode;
   String pairingQrPayload;
+  String homesJson = "[]";
+  unsigned fabricCapacity = 0;
+  bool pairingWindowOpen = false;
+  bool additionalPairing = false;
+  String pairingWindowId;
 };
 TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth& auth);
