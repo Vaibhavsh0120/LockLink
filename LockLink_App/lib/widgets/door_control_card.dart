@@ -12,6 +12,7 @@ class DoorControlCard extends StatelessWidget {
     required this.onUnlock,
     this.compact = false,
     this.controlSize,
+    this.connectionError = false,
   });
 
   final bool online;
@@ -23,13 +24,16 @@ class DoorControlCard extends StatelessWidget {
   final VoidCallback? onUnlock;
   final bool compact;
   final double? controlSize;
+  final bool connectionError;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
-    final statusColor = dark
+    final statusColor = connectionError
+        ? colors.error
+        : dark
         ? (online && ready ? colors.onSurface : colors.onSurfaceVariant)
         : !online
         ? colors.onSurfaceVariant
@@ -174,7 +178,9 @@ class DoorControlCard extends StatelessWidget {
                 helperText!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
+                  color: connectionError
+                      ? colors.error
+                      : colors.onSurfaceVariant,
                 ),
               ),
             ],

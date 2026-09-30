@@ -17,7 +17,7 @@ def read_version(pubspec: Path) -> str:
         raise ValueError("pubspec.yaml must contain exactly one top-level version.")
     version = versions[0].split("#", 1)[0].strip().strip("\"'")
     if not re.fullmatch(SEMVER + r"\+[1-9][0-9]*", version):
-        raise ValueError("App version must include a semantic version and positive build number, e.g. 1.9.2+192.")
+        raise ValueError("App version must include a semantic version and positive build number, e.g. 1.9.3+193.")
     return version
 
 

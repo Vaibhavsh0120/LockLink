@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -37,7 +38,16 @@ void main() {
   setUpAll(() async {
     if (!const bool.fromEnvironment('CAPTURE_TERMINAL')) return;
     const fontDir = String.fromEnvironment('PREVIEW_FONT_DIR');
-    for (final family in ['Roboto', 'monospace']) {
+    // Substitute Roboto for Apple's system font in Windows test captures.
+    for (final family in [
+      'Roboto',
+      'monospace',
+      'CupertinoSystemText',
+      'CupertinoSystemDisplay',
+      '.AppleSystemUIFont',
+      '.SF Pro Text',
+      '.SF Pro Display',
+    ]) {
       final loader = FontLoader(family)
         ..addFont(
           File('$fontDir/roboto-regular.ttf')
@@ -103,6 +113,14 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
+            final connectionError = find.text(
+              'Cannot reach device. Check power, Wi-Fi and address.',
+            );
+            expect(connectionError, findsOneWidget);
+            expect(
+              tester.widget<Text>(connectionError).style?.color,
+              AppTheme.build(Brightness.dark).colorScheme.error,
+            );
             await capture(
               tester,
               terminal ? 'terminal-offline' : 'setup-offline',
@@ -175,6 +193,88 @@ void main() {
         );
       },
     );
+  }
+
+  for (final (ecosystem, platform, size) in [
+    (HomeEcosystem.apple, TargetPlatform.iOS, const Size(390, 844)),
+    (HomeEcosystem.google, TargetPlatform.android, const Size(390, 844)),
+    (HomeEcosystem.alexa, TargetPlatform.iOS, const Size(834, 1112)),
+  ]) {
+    testWidgets('${ecosystem.label} launch has a readable manual fallback', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      const channel = MethodChannel('com.locklink/home_apps');
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return 'unavailable';
+      });
+      addTearDown(() async {
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        );
+        await tester.binding.setSurfaceSize(null);
+      });
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            RepaintBoundary(
+              key: const Key('capture'),
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: AppTheme.build(Brightness.dark),
+                home: HomeSetupScreen(
+                  settings: DeviceSettings(preferences: MemoryPreferences()),
+                  ecosystem: ecosystem,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await capture(tester, 'home-launch-${ecosystem.name}-initial');
+          await tester.tap(find.text('Get setup code'));
+          await tester.pumpAndSettle();
+          final launch = find.text('Open ${ecosystem.label}');
+          await tester.ensureVisible(launch);
+          await tester.tap(launch);
+          await tester.pumpAndSettle();
+          expect(calls.length, 1);
+          expect(calls.single.arguments, {
+            'ecosystem': ecosystem.name,
+            if (platform == TargetPlatform.android)
+              'pairingQr': 'MT:Y.K9042C00KA0648G00',
+          });
+          final error = find.textContaining(
+            'Could not open ${ecosystem.label}.',
+          );
+          expect(error, findsOneWidget);
+          expect(
+            tester.widget<Text>(error).style?.color,
+            AppTheme.build(Brightness.dark).colorScheme.error,
+          );
+          await tester.ensureVisible(error);
+          await capture(tester, 'home-launch-${ecosystem.name}-fallback');
+          expect(find.text('Check pairing'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+        () => MockClient((request) async {
+          if (request.url.path.endsWith('/challenge')) {
+            return http.Response(
+              '{"nonce":"00112233445566778899aabbccddeeff"}',
+              200,
+            );
+          }
+          return reply(request.body);
+        }),
+      );
+    }, variant: TargetPlatformVariant({platform}));
   }
 
   for (final brightness in Brightness.values) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/matter_home.dart';
 
 import '../services/device_settings.dart';
+import '../services/home_app_launcher.dart';
 import '../services/terminal_session.dart';
 import '../widgets/pairing_code_display.dart';
 import '../widgets/device_connection_help.dart';
@@ -190,7 +191,9 @@ class _SmartHomeScreenState extends State<SmartHomeScreen>
         actions: [
           IconButton(
             tooltip: 'Refresh connected homes',
-            onPressed: _session.busy ? null : () => _session.send('HOMES'),
+            onPressed: _session.sendingCommand
+                ? null
+                : () => _session.send('HOMES'),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -216,12 +219,19 @@ class _SmartHomeScreenState extends State<SmartHomeScreen>
                   if (!_session.connected) ...[
                     Semantics(
                       liveRegion: true,
-                      child: Text(_session.error ?? 'Connecting to your door…'),
+                      child: Text(
+                        _session.error ?? 'Connecting to your door…',
+                        style: _session.error == null
+                            ? null
+                            : TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                      ),
                     ),
                     if (_session.error != null) ...[
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
-                        onPressed: _session.busy
+                        onPressed: _session.sendingCommand
                             ? null
                             : () => _session.send('STATUS'),
                         icon: const Icon(Icons.refresh_rounded),
@@ -434,9 +444,17 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
     with WidgetsBindingObserver {
   late final TerminalSession _session;
   bool _preparing = false;
+  bool _checking = false;
+  bool _openingHome = false;
   bool _prepared = false;
   Set<String>? _baselineHomes;
+  String? _baselineBoot;
+  bool? _baselineCommissioned;
   String? _result;
+  bool _resultError = false;
+  String? _launchError;
+
+  bool get _commandBusy => _session.sendingCommand || _preparing || _checking;
 
   @override
   void initState() {
@@ -454,6 +472,11 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
     if (mounted) {
       setState(() {
         if (!_session.connected) _result = null;
+        if (_baselineBoot != null && _session.boot != _baselineBoot) {
+          _result =
+              'Door restarted. Get a fresh code before checking a new pairing.';
+          _resultError = false;
+        }
       });
     }
   }
@@ -465,27 +488,44 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   }
 
   Future<void> _prepare() async {
-    if (!_session.connected || _session.busy || _preparing) return;
+    if (!_session.connected || _commandBusy || _openingHome) return;
     setState(() {
       _preparing = true;
       _result = null;
+      _resultError = false;
+      _baselineHomes = null;
+      _baselineBoot = null;
+      _baselineCommissioned = null;
     });
     try {
       final status = await _session.send('STATUS');
-      if (!mounted ||
-          status == null ||
-          !status.ok ||
-          (status.commissioned && status.homes == null)) {
+      if (!mounted || status == null) return;
+      if (!status.ok || (status.commissioned && status.homes == null)) {
+        setState(() {
+          _result = status.ok
+              ? 'Update the ESP32 firmware to get a sharing code here.'
+              : status.output;
+          _resultError = true;
+        });
         return;
       }
-      _baselineHomes = status.homes?.map((home) => home.id).toSet();
       final reply = await _session.send(
         status.commissioned ? 'PAIR ADD' : 'PAIR',
       );
       if (mounted && reply != null) {
         setState(() {
-          if (!reply.ok) _result = reply.output;
-          if (_session.pairingCode != null) _prepared = true;
+          if (!reply.ok) {
+            _result = reply.output;
+            _resultError = true;
+          }
+          if (_session.pairingCode != null) {
+            _prepared = true;
+            // Another phone may add a home between STATUS and PAIR ADD.
+            // Compare against the snapshot that actually opened the window.
+            _baselineHomes = reply.homes?.map((home) => home.id).toSet();
+            _baselineBoot = reply.boot;
+            _baselineCommissioned = reply.commissioned;
+          }
         });
       }
     } finally {
@@ -494,17 +534,58 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
   }
 
   Future<void> _check() async {
-    if (!_session.connected) return;
-    final status = await _session.send('STATUS');
-    if (!mounted || status == null) return;
-    setState(
-      () => _result =
-          (status.homes != null && _baselineHomes != null
-              ? status.homes!.any((home) => !_baselineHomes!.contains(home.id))
-              : status.commissioned)
-          ? 'Matter pairing detected. Confirm Door Release appears in ${widget.ecosystem.label}.'
-          : 'No new pairing detected yet. Finish setup in ${widget.ecosystem.label}.',
+    if (!_session.connected || _commandBusy || _openingHome) return;
+    setState(() => _checking = true);
+    try {
+      final status = await _session.send('STATUS');
+      if (!mounted || status == null) return;
+      setState(() {
+        _resultError = !status.ok;
+        if (!status.ok) {
+          _result = status.output;
+        } else if (_baselineBoot != null && status.boot != _baselineBoot) {
+          _result =
+              'Door restarted. Get a fresh code before checking a new pairing.';
+        } else if (_baselineHomes != null && status.homes != null) {
+          final added = status.homes!.any(
+            (home) => !_baselineHomes!.contains(home.id),
+          );
+          _result = added
+              ? 'Matter pairing detected. Confirm Door Release appears in ${widget.ecosystem.label}.'
+              : 'No new pairing detected yet. Finish setup in ${widget.ecosystem.label}.';
+        } else if (_baselineCommissioned == false && status.commissioned) {
+          _result =
+              'Matter pairing detected. Confirm Door Release appears in ${widget.ecosystem.label}.';
+        } else {
+          _result = status.commissioned
+              ? 'Already paired with a home. Confirm Door Release appears in ${widget.ecosystem.label}; this does not confirm a new pairing.'
+              : 'No new pairing detected yet. Finish setup in ${widget.ecosystem.label}.';
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  Future<void> _openHomeApp() async {
+    if (_openingHome || _commandBusy) return;
+    setState(() {
+      _openingHome = true;
+      _launchError = null;
+    });
+    final home = widget.ecosystem;
+    final result = await HomeAppLauncher.open(
+      home.name,
+      pairingQr: _session.connected ? _session.pairingQrPayload : null,
     );
+    if (!mounted) return;
+    setState(() {
+      _openingHome = false;
+      if (result == HomeAppOpenResult.unavailable) {
+        _launchError =
+            'Could not open ${home.label}. Install or update it, or open it yourself and follow the setup steps.';
+      }
+    });
   }
 
   @override
@@ -520,7 +601,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
     final home = widget.ecosystem;
     final paired = _session.latest?.commissioned == true;
     final legacyPaired = paired && _session.latest?.homes == null;
-    final busy = _session.busy || _preparing || !_session.connected;
+    final busy = _commandBusy || _openingHome || !_session.connected;
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -554,12 +635,17 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
                 if (!_session.connected) ...[
                   Semantics(
                     liveRegion: true,
-                    child: Text(_session.error ?? 'Connecting to your ESP32…'),
+                    child: Text(
+                      _session.error ?? 'Connecting to your ESP32…',
+                      style: _session.error == null
+                          ? null
+                          : TextStyle(color: theme.colorScheme.error),
+                    ),
                   ),
                   if (_session.error != null) ...[
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: _session.busy
+                      onPressed: _session.sendingCommand
                           ? null
                           : () => _session.send('STATUS'),
                       icon: const Icon(Icons.refresh_rounded),
@@ -622,35 +708,75 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
                       'Setup code hidden. Check pairing or get the code again.',
                     ),
                   ],
-                  if (_prepared) ...[
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: busy ? null : _check,
-                      child: const Text('Check pairing'),
-                    ),
-                    if (_session.pairingCode == null) ...[
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: busy ? null : _prepare,
-                        child: Text(
-                          _preparing ? 'Getting code…' : 'Get code again',
-                        ),
-                      ),
-                    ],
-                  ],
                 ],
-                if (legacyPaired) ...[
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed:
+                      !HomeAppLauncher.supports(home.name) ||
+                          _commandBusy ||
+                          _openingHome
+                      ? null
+                      : _openHomeApp,
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: Text(_openingHome ? 'Opening…' : 'Open ${home.label}'),
+                ),
+                const SizedBox(height: 8),
+                if (!HomeAppLauncher.supports(home.name))
+                  Text(
+                    home == HomeEcosystem.apple
+                        ? 'Finish setup in Apple Home on an iPhone or iPad.'
+                        : 'Finish setup in the home app on a phone.',
+                  ),
+                if (_launchError != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _launchError!,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                ],
+                if (_prepared || legacyPaired) ...[
                   const SizedBox(height: 16),
-                  OutlinedButton(
+                  FilledButton(
                     onPressed: busy ? null : _check,
                     child: const Text('Check pairing'),
                   ),
+                  if (!legacyPaired && _session.pairingCode == null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: busy ? null : _prepare,
+                      child: Text(
+                        _preparing ? 'Getting code…' : 'Get code again',
+                      ),
+                    ),
+                  ],
                 ],
                 if (_result != null) ...[
                   const SizedBox(height: 12),
-                  Semantics(liveRegion: true, child: Text(_result!)),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _result!,
+                      style: _resultError
+                          ? TextStyle(color: theme.colorScheme.error)
+                          : null,
+                    ),
+                  ),
                 ],
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                if (!_prepared && !legacyPaired)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text('Setup steps'),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(home.instructions),
+                      ),
+                    ],
+                  ),
                 ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   title: const Text('About Door Release'),
@@ -658,7 +784,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
                     Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: Text(
-                        'Door Release is a momentary switch. Turning it on releases for 2 seconds. It has no door-position sensor or spoken unlock PIN.',
+                        'Door Release is a Matter door lock. Unlock releases for 2 seconds; Lock stops it early. Its status reports the output, not the physical door position.',
                       ),
                     ),
                   ],

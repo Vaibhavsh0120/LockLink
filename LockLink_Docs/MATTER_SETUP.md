@@ -1,6 +1,6 @@
 # Apple Home, Google Home, and Alexa
 
-The v1.9.2 `LockLink_IoT` firmware exposes **Door Release** as a Matter
+The v1.9.3 `LockLink_IoT` firmware exposes **Door Release** as a Matter
 **Door Lock** accessory alongside the LockLink app HTTP API. **Unlock** starts
 a two-second release; the output then turns off and reports **Locked**.
 **Lock** ends an active release early. Repeated Unlock commands during a
@@ -195,6 +195,31 @@ See Google's [development requirements](https://developers.home.google.com/matte
 
 ## Existing LockLink app
 
+### Open the home app from LockLink
+
+Each ecosystem guide has an **Open Apple Home**, **Open Google Home**, or
+**Open Amazon Alexa** button. Obtain the setup/sharing code first.
+
+- **Google on Android:** with a live QR payload, LockLink uses Google's
+  [documented Matter intent](https://developers.home.google.com/samples/intent-based-commissioning)
+  to open the Play Services commissioning/app picker. Select Google Home there.
+  If that entry point is unavailable, LockLink opens Google Home for manual setup.
+- **Apple Home on iPhone/iPad, Google Home on iOS, and Alexa:** open the installed
+  app and follow the visible Add Accessory / Add Device steps. iOS URL schemes
+  are best-effort app entry points, not a guaranteed accessory setup page; an app
+  version or installation container can reject them. LockLink reports failure
+  and keeps the manual instructions available. No HomeKit entitlement is added.
+- **Android Apple Home and desktop/web:** the app-launch button is disabled;
+  finish commissioning on a supported phone or iPad.
+
+The Google Android QR handoff stays in memory and targets Play Services
+explicitly. Other app launch URLs contain no pairing credentials. Returning
+from an external app still requires a fresh ESP32 response before device actions
+are enabled; the setup code is hidden when LockLink leaves the foreground.
+Successful app launching does not prove accessory pairing. Check pairing
+compares committed home IDs against the window-opening snapshot. Pending
+commissioning, an existing legacy pairing, or a reboot cannot confirm a new home.
+
 After Wi-Fi connects by either setup route, USB serial prints the current IPv4 address. Save
 that address and the configured app key in LockLink. A DHCP reservation can
 keep the address stable. The original `/status`, `/challenge`, and signed
@@ -206,6 +231,13 @@ response additionally reports `physical_state_known: false` and
 `matter_accessory: "door_lock"`.
 
 ## Pairing information, reset, and recovery
+
+`PAIR` reopens an expired first-home window with Bluetooth plus DNS-SD when BLE
+is supported, matching its QR payload. The firmware keeps BLE memory after
+commissioning so removing the last home does not require a reboot for Bluetooth
+setup. This retains BLE RAM rather than returning it to the heap. Advertising
+still follows SDK pairing windows; additional-home windows stay on the local
+network. Validate memory headroom and re-pairing on the actual board/controllers.
 
 Send `STATUS` followed by Enter over USB serial. It reports the firmware version,
 commissioning, available IPv4 address and release-output state without printing setup

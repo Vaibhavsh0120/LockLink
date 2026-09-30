@@ -386,6 +386,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               DoorControlCard(
+                                connectionError:
+                                    !_loading && _hasChecked && !_online,
                                 online: _online,
                                 ready: ready,
                                 active: active,

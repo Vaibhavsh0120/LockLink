@@ -179,6 +179,9 @@ class _TerminalScreenState extends State<TerminalScreen>
                                   ? Icons.wifi_rounded
                                   : Icons.wifi_off_rounded,
                               size: 18,
+                              color: _session.error == null
+                                  ? null
+                                  : theme.colorScheme.error,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -187,12 +190,15 @@ class _TerminalScreenState extends State<TerminalScreen>
                                     (_session.connected
                                         ? 'Live · ${_session.address.replaceFirst('http://', '')}'
                                         : 'Connecting…'),
+                                style: _session.error == null
+                                    ? null
+                                    : TextStyle(color: theme.colorScheme.error),
                               ),
                             ),
                             if (_session.error != null)
                               IconButton(
                                 tooltip: 'Reconnect',
-                                onPressed: _session.busy
+                                onPressed: _session.sendingCommand
                                     ? null
                                     : () => _session.send('STATUS'),
                                 icon: const Icon(Icons.refresh_rounded),

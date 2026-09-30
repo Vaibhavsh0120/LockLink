@@ -24,6 +24,7 @@ class TerminalSession extends ChangeNotifier {
   String? error;
   String address = '';
   String _boot = '';
+  String get boot => _boot;
   int _cursor = 0;
   final List<String> lines = [];
   TerminalReply? latest;
@@ -101,6 +102,7 @@ class TerminalSession extends ChangeNotifier {
       _queuedCommand = true;
       final epoch = _activityEpoch;
       final boot = _boot;
+      notifyListeners();
       await _exchangeDone!.future;
       _queuedCommand = false;
       if (_disposed ||
@@ -108,6 +110,7 @@ class TerminalSession extends ChangeNotifier {
           !connected ||
           epoch != _activityEpoch ||
           boot != _boot) {
+        if (!_disposed) notifyListeners();
         return null;
       }
       return send(command);

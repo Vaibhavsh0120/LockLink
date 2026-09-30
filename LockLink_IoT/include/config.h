@@ -29,7 +29,7 @@
 #endif
 
 namespace config {
-constexpr char version[] = "1.9.2";
+constexpr char version[] = "1.9.3";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");

@@ -45,6 +45,151 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
+  testWidgets('setup and check buttons stay enabled during background polls', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var poll = Completer<http.Response>();
+    final commands = <String>[];
+    http.Response response(String command) {
+      final data = reply();
+      if (command != 'PAIR ADD') {
+        data['pairing_code'] = null;
+        data['pairing_qr_payload'] = null;
+      }
+      return http.Response(jsonEncode(data), 200);
+    }
+
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: HomeSetupScreen(
+              settings: DeviceSettings(preferences: MemoryPreferences()),
+              ecosystem: HomeEcosystem.apple,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        final setup = find.widgetWithText(FilledButton, 'Get sharing code');
+        expect(tester.widget<FilledButton>(setup).onPressed, isNotNull);
+        await tester.tap(setup);
+        await tester.pump();
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.widgetWithText(FilledButton, 'Getting code…'),
+              )
+              .onPressed,
+          isNull,
+        );
+        poll.complete(response(''));
+        await tester.pumpAndSettle();
+        expect(commands.where((c) => c == 'PAIR ADD').length, 1);
+        poll = Completer<http.Response>();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        final check = find.widgetWithText(FilledButton, 'Check pairing');
+        expect(tester.widget<FilledButton>(check).onPressed, isNotNull);
+        await tester.tap(check);
+        await tester.pump();
+        expect(tester.widget<FilledButton>(check).onPressed, isNull);
+        poll.complete(response(''));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('No new pairing detected yet.'),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      () => MockClient((request) async {
+        if (request.url.path.endsWith('/challenge')) {
+          return http.Response(
+            '{"nonce":"00112233445566778899aabbccddeeff"}',
+            200,
+          );
+        }
+        commands.add(request.body);
+        if (request.body.isEmpty) return poll.future;
+        return response(request.body);
+      }),
+    );
+  });
+
+  for (final scenario in ['legacy', 'restart', 'concurrent']) {
+    testWidgets('pairing check avoids false confirmation after $scenario', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var changed = false;
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeSetupScreen(
+                settings: DeviceSettings(preferences: MemoryPreferences()),
+                ecosystem: HomeEcosystem.apple,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (scenario != 'legacy') {
+            await tester.tap(find.text('Get sharing code'));
+            await tester.pumpAndSettle();
+            changed = true;
+          }
+          await tester.ensureVisible(find.text('Check pairing'));
+          await tester.tap(find.text('Check pairing'));
+          await tester.pumpAndSettle();
+          expect(find.textContaining('Matter pairing detected.'), findsNothing);
+          expect(
+            find.textContaining(switch (scenario) {
+              'legacy' => 'this does not confirm a new pairing',
+              'restart' => 'Door restarted. Get a fresh code',
+              _ => 'No new pairing detected yet.',
+            }),
+            findsOneWidget,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+        () => MockClient((request) async {
+          if (request.url.path.endsWith('/challenge')) {
+            return http.Response(
+              '{"nonce":"00112233445566778899aabbccddeeff"}',
+              200,
+            );
+          }
+          final data = reply(
+            added:
+                scenario == 'concurrent' &&
+                (changed || request.body == 'PAIR ADD'),
+          );
+          if (scenario == 'restart' && changed) data['boot'] = 'def';
+          if (request.body != 'PAIR ADD') {
+            data['pairing_code'] = null;
+            data['pairing_qr_payload'] = null;
+          }
+          if (scenario == 'legacy') {
+            for (final key in [
+              'homes',
+              'fabric_capacity',
+              'pairing_mode',
+              'pairing_window_id',
+              'pairing_window_open',
+            ]) {
+              data.remove(key);
+            }
+          }
+          return http.Response(jsonEncode(data), 200);
+        }),
+      );
+    });
+  }
+
   testWidgets('rename and removal on one app sync to another app', (
     tester,
   ) async {

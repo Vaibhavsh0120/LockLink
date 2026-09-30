@@ -1,6 +1,6 @@
 # LockLink app
 
-The v1.9.2 Flutter client for the local ESP32-S3 LockLink controller runs on Android,
+The v1.9.3 Flutter client for the local ESP32-S3 LockLink controller runs on Android,
 iOS, and the web. Choose light, dark, or system appearance in Settings.
 
 1. Run `flutter pub get` and `flutter run`.
@@ -34,6 +34,12 @@ app key. The list represents Matter homes/fabrics, not individual accounts or ph
 Setup never resets the device or starts a release. Removing a home stops any
 active release before removing that pairing.
 
+Pairing buttons stay enabled during background polling and disable during a
+command or loss of connection. **Open Apple Home / Google Home / Amazon Alexa**
+provides a phone-app handoff. Google on Android can start Matter setup using
+the current QR through Play Services; other routes open the installed app and
+keep manual setup instructions. Missing apps show a recoverable error.
+
 Pairing codes and open QR views clear when the app leaves the foreground, the
 connection fails, the device restarts, or pairing completes. QR generation stays
 on the phone; QR payloads never enter terminal logs or persistent storage.
@@ -50,4 +56,6 @@ Control, Terminal commands and setup-code generation wait for a fresh device
 connection. Foreground screens retry status automatically; commands are never
 replayed on reconnect. Connection help covers power, Wi-Fi, changed addresses
 and first-time setup over USB. A lost unlock reply means its outcome is unknown.
+Connection error text is red in both light and dark themes; initial connection
+checking stays neutral.
 See [offline behavior and recovery](../LockLink_Docs/OFFLINE_BEHAVIOR.md).

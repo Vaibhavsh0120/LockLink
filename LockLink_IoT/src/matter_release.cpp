@@ -58,7 +58,11 @@ String homeId(const chip::FabricInfo& fabric) {
 
 String homeIds() {
   String ids;
-  for (const auto& fabric : chip::Server::GetInstance().GetFabricTable()) ids += homeId(fabric);
+  auto& table = chip::Server::GetInstance().GetFabricTable();
+  const auto pending = table.GetPendingNewFabricIndex();
+  for (const auto& fabric : table) {
+    if (fabric.GetFabricIndex() != pending) ids += homeId(fabric);
+  }
   return ids;
 }
 
@@ -220,12 +224,17 @@ HomesSnapshot homesSnapshot() {
   if (!started) return result;
   esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
   auto& table = chip::Server::GetInstance().GetFabricTable();
-  result.commissioned = table.FabricCount() > 0;
+  result.commissioned = false;
   result.windowOpen = chip::Server::GetInstance().GetCommissioningWindowManager().IsCommissioningWindowOpen();
   result.additional = ownsWindow();
   if (result.additional) result.windowId = additionalWindowId;
   result.json = "[";
+  const auto pending = table.GetPendingNewFabricIndex();
   for (const auto& fabric : table) {
+    // AddNOC creates a provisional entry which can still be rolled back.
+    // Only CommissioningComplete commits a new home for pairing checks.
+    if (fabric.GetFabricIndex() == pending) continue;
+    result.commissioned = true;
     if (result.json.length() > 1) result.json += ',';
     auto label = fabric.GetFabricLabel();
     String name;
@@ -366,7 +375,7 @@ bool manageHome(const String& id, const String& hexLabel, bool remove, String& m
 bool commissioned() {
   if (!started) return false;
   esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
-  return Matter.isDeviceCommissioned();
+  return !homeIds().isEmpty();
 }
 
 String identity() {
@@ -384,18 +393,23 @@ String preparePairing(String& message, String& qrPayload) {
   qrPayload = "";
   if (!started) { message = "Matter unavailable. Restart the device."; return ""; }
   esp_matter::lock::ScopedChipStackLock lock(portMAX_DELAY);
-  if (Matter.isDeviceCommissioned()) {
-    message = "Already paired. Use PAIR ADD or get a sharing code from the connected home app.";
-    return "";
-  }
   if (!chip::Server::GetInstance().GetFailSafeContext().IsFailSafeFullyDisarmed()) {
     message = "Pairing is in progress. Wait for it to finish.";
     return "";
   }
+  if (Matter.isDeviceCommissioned()) {
+    message = "Already paired. Use PAIR ADD or get a sharing code from the connected home app.";
+    return "";
+  }
   auto& window = chip::Server::GetInstance().GetCommissioningWindowManager();
+  // USB PAIR must still work without Wi-Fi after the initial window expires.
+  // Match the onboarding payload and ArduinoMatter's supported transports.
+  const auto advertisement = Matter.isBLECommissioningEnabled()
+      ? chip::CommissioningWindowAdvertisement::kAllSupported
+      : chip::CommissioningWindowAdvertisement::kDnssdOnly;
   if (!window.IsCommissioningWindowOpen() &&
       window.OpenBasicCommissioningWindow(chip::System::Clock::Seconds16(300),
-          chip::CommissioningWindowAdvertisement::kDnssdOnly) != CHIP_NO_ERROR) {
+          advertisement) != CHIP_NO_ERROR) {
     message = "Pairing unavailable. Wait, then try PAIR again.";
     return "";
   }
@@ -415,6 +429,11 @@ bool begin(ReleaseOutput& relay, bool isArmed) {
   output = &relay;
   armed = isArmed;
   if (!Matter.selectNetwork(MATTER_NETWORK_WIFI) || !configurePairing()) return false;
+  // ArduinoMatter otherwise permanently releases BLE RAM after commissioning.
+  // Keep it available so removing the last home can be followed by BLE setup
+  // without restarting; advertising remains controlled by pairing windows.
+  if (Matter.isBLECommissioningEnabled() &&
+      !Matter.setBLEMemoryReleaseEnabled(false)) return false;
   Lifecycle::prepare();
   esp_matter::endpoint::door_lock::config_t lockConfig;
   lockConfig.door_lock.lock_state =

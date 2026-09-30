@@ -1,4 +1,4 @@
-# App terminal and connected-home contract (v1.9.2)
+# App terminal and connected-home contract (v1.9.3)
 
 ## Current behavior
 
@@ -90,6 +90,12 @@ requesting authenticated client, not retained in the shared log buffer.
   the original code or resets the accessory.
   Check pairing compares home IDs to the pre-pairing list; the presence of an
   existing home is not evidence that a new pairing completed.
+  The baseline comes from the reply that opened the window, so a different
+  phone's change between STATUS and PAIR ADD cannot count as this new pairing.
+  Reboots invalidate the comparison; obtain a fresh code. Legacy already-paired
+  firmware reports only an existing pairing, not success for another home.
+  Firmware excludes pending AddNOC entries until CommissioningComplete commits
+  them; provisional fabric entries are not successful connected homes.
 - New replies include optional `homes` records (`id`, `index`, `vendor_id`,
   `label`), `fabric_capacity`, `pairing_window_open`, `pairing_mode`, and an opaque
   `pairing_window_id`. Replacing a sharing code on one phone invalidates the
@@ -104,6 +110,9 @@ requesting authenticated client, not retained in the shared log buffer.
 - An explicit Terminal send can wait for one current read-only poll, but is
   cancelled by backgrounding, disconnect, or reboot. A reply only clears the
   submitted draft when the user has not changed it while waiting.
+  Setup controls use command activity rather than poll activity, preventing
+  enabled/disabled color blinking each second. A queued command immediately
+  disables competing commands until it completes or is cancelled.
 - Codes disappear on background, disconnect, reboot, timeout, closed window,
   or a changed home list. `PAIR CLOSE` closes the temporary window; merely hiding
   a code does not cancel a pairing in progress.
@@ -157,7 +166,7 @@ QR payload handling and home management. Native firmware tests and compilation
 can check simulated output/network boundaries, but cannot prove commissioning,
 physical network recovery, assistant unlocking, relay behavior or iPhone install.
 Rendered mock previews and QR decoding also do not establish recognition by a
-second physical phone. See [v1.9.2 release notes](releases/v1.9.2.md) for the
+second physical phone. See [v1.9.3 release notes](releases/v1.9.3.md) for the
 checks actually run for this version.
 
 Install matching app and firmware versions to use the terminal and home

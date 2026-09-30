@@ -1,6 +1,6 @@
 # LockLink
 
-Current source version: **v1.9.2**.
+Current source version: **v1.9.3**.
 
 LockLink is a local network door controller for ESP32-S3 N16R8. The default
 configuration remains an RGB LED prototype. An explicitly enabled relay mode
@@ -105,9 +105,9 @@ pairing/network settings; ordinary firmware updates should not erase them.
 
 ## Mobile releases
 
-Version **1.9.2** includes the current app, terminal, connected-home management
+Version **1.9.3** includes the current app, terminal, connected-home management
 and native widget behavior. Both the center circular control and the Unlock
-button request the same release. See [v1.9.2 release notes](LockLink_Docs/releases/v1.9.2.md)
+button request the same release. See [v1.9.3 release notes](LockLink_Docs/releases/v1.9.3.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 
@@ -118,7 +118,7 @@ a direct installation with the extension signed; LiveContainer guest installs
 cannot expose the widget to iOS.
 
 Push this repository to GitHub, then open **Actions → Manual mobile release →
-Run workflow** and enter `v1.9.2`. After verification and both
+Run workflow** and enter `v1.9.3`. After verification and both
 builds succeed, the workflow creates or updates a GitHub Release containing
 `LockLink-Android.apk` and `LockLink-iOS-unsigned.ipa`.
 The tag must match the app source version and resolve to the workflow's source
