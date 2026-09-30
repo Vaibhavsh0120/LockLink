@@ -218,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 enableSuggestions: false,
                 decoration: const InputDecoration(
                   labelText: 'Device IP address',
-                  hintText: '192.168.0.111',
+                  hintText: '192.168.0.112',
                 ),
                 validator: (value) =>
                     DeviceSettings.normalizeAddress(value ?? '') == null
@@ -469,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                         const SizedBox(height: 24),
                         Text(
-                                  'LockLink · v1.9.3',
+                                  'LockLink · v2.0.0',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,

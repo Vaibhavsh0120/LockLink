@@ -1,5 +1,6 @@
 #include "release_output.h"
 #include "config.h"
+#include <driver/gpio.h>
 
 namespace {
 uint32_t nowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
@@ -8,10 +9,15 @@ uint32_t nowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 bool ReleaseOutput::begin() {
   // Inactive output is established before any network or commissioning work.
   if (config::relayEnabled) {
-    digitalWrite(config::outputPin, config::outputActiveHigh ? LOW : HIGH);
+    // Arduino 3 digitalWrite ignores pins until pinMode registers the GPIO.
+    // Set the hardware latch directly before enabling the output driver.
+    gpio_set_level(static_cast<gpio_num_t>(config::outputPin),
+                   config::outputActiveHigh ? LOW : HIGH);
     pinMode(config::outputPin, OUTPUT);
   }
-  rgbLedWrite(config::indicatorPin, 0, 0, 0);
+  gpio_set_level(static_cast<gpio_num_t>(config::indicatorPin),
+                 config::indicatorActiveHigh ? LOW : HIGH);
+  pinMode(config::indicatorPin, OUTPUT);
   mutex_ = xSemaphoreCreateMutex();
   if (!mutex_) return false;
   esp_timer_create_args_t args = {};
@@ -28,6 +34,10 @@ void ReleaseOutput::setRelay(bool enabled) {
     digitalWrite(config::outputPin,
                  enabled == config::outputActiveHigh ? HIGH : LOW);
   }
+  // The C3 blue LED is a regular active-LOW GPIO, safe to update in the
+  // timer task. It follows cutoff/stop/reset without waiting for loop().
+  digitalWrite(config::indicatorPin,
+               enabled == config::indicatorActiveHigh ? HIGH : LOW);
 }
 
 ReleaseOutput::Result ReleaseOutput::release() {
@@ -90,12 +100,4 @@ void ReleaseOutput::expire() {
   // A previously dispatched callback must not stop a newer pulse.
   if (state_.expire(nowMs())) setRelay(false);
   xSemaphoreGive(mutex_);
-}
-
-void ReleaseOutput::updateIndicator() {
-  const bool enabled = active();
-  if (enabled == indicatorState_) return;
-  indicatorState_ = enabled;
-  // Keep the addressable LED driver out of the high-priority timer task.
-  rgbLedWrite(config::indicatorPin, 0, enabled ? 32 : 0, 0);
 }

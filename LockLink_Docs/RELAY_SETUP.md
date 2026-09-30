@@ -1,17 +1,16 @@
 # Relay setup for a 12 V power-to-unlock lock
 
-The public ESP32-S3 configuration uses GPIO 48 for its RGB indicator. Relay mode uses **GPIO 2**
-for the relay signal and keeps GPIO 48 as the pulse indicator. The relay is a
+The ESP32-C3 Super Mini configuration uses **GPIO4** for the active-HIGH relay
+and GPIO8 for its active-LOW blue LED. HIGH energizes the relay; LOW is idle.
+An accepted Unlock energizes it for **one second**. The relay is a
 switch: the ESP32 GPIO must never power the 12 V lock directly.
 
 ## Choose the relay
 
-The pictured Robu 5 V optocoupler board needs a 5 V relay supply. Its listing
-does not clearly establish 3.3 V input compatibility or trigger polarity, so
-do not connect its IN terminal straight to the ESP32 yet. A documented option
-is [DFRobot DFR0473](https://wiki.dfrobot.com/dfr0473/): it accepts a 2.8–5.5 V supply and a high-level control
-signal of at least 2.8 V, has COM/NO/NC contacts, and is rated for DC
-switching. Verify the lock's peak current against the relay's *inductive*
+The installed module was confirmed to turn ON when GPIO4 is HIGH. Keep that
+polarity; an active-LOW replacement is incompatible with this configuration.
+Use a relay input compatible with 3.3 V logic and the module's specified supply.
+Verify the lock's peak current against the relay's *inductive*
 load rating, not just the advertised resistive 10 A figure.
 
 ## Low-voltage wiring, after confirming the lock and supply ratings
@@ -19,10 +18,10 @@ load rating, not just the advertised resistive 10 A figure.
 For a power-to-unlock lock that remains locked without power:
 
 ```text
-ESP32 GPIO 2  ---------------------- relay D / IN (active HIGH)
+ESP32 GPIO4   ---------------------- relay D / IN (active HIGH)
 ESP32 GND     ---------------------- relay GND
 regulated 3.3–5 V ------------------ relay VCC (per module specification)
-10 kΩ resistor: GPIO 2 ------------ GND (keeps relay off during boot)
+10 kΩ resistor: GPIO4 ------------- GND (keeps relay off during boot)
 
 12 V supply + -- suitable DC fuse -- relay COM
 relay NO --------------------------- lock +
@@ -49,17 +48,18 @@ a meter and no lock connected before applying 12 V.
    configured, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
    Put it in `LOCKLINK_UNLOCK_KEY_HEX` and app settings. Set
-   `LOCKLINK_RELAY_ENABLED 1`. Keep GPIO 2 and active-HIGH for DFR0473.
-3. In `LockLink_IoT`, run `pio run -e esp32-s3-n16r8 -t upload`, then
+   `LOCKLINK_RELAY_ENABLED 1` (the default). Use GPIO4 and active HIGH.
+3. In `LockLink_IoT`, run `pio run -e esp32-c3-supermini -t upload`, then
    `pio device monitor -b 115200`. Serial Monitor must report the relay output
    and `armed: yes`; it must **not** say `Relay NOT armed`. Type `STATUS` and
    Enter to check Wi-Fi and the local app address after connection.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
-   Unlock sends a signed command and pulses the relay for two seconds.
+   Unlock sends a signed command and pulses the relay for one second.
 
-The app's initial address and pairing value are placeholders; they do not
-configure the ESP32. Use its reported local address and your private key.
+The app defaults to `192.168.0.112` and has no built-in pairing key. These app
+settings do not configure the ESP32. Use its reported local address and your
+private key; saved keys on existing installations are retained.
 For a 4–64 character text pairing value, set `LOCKLINK_UNLOCK_KEY_HEX`
 to its SHA-256 hex digest and enter the original text in the app. A 64-character
 hex key is used directly, without hashing. Changing firmware configuration
@@ -77,13 +77,13 @@ For a browser hosted on the local network, set
 (for example `http://localhost:8080`). Its default empty value blocks web
 unlock in relay mode. Do not set this to a public Vercel origin.
 
-If ESP32 power fails, GPIO 2's pulldown and the normally open contact leave
+If ESP32 power fails, GPIO4's pulldown and the normally open contact leave
 this power-to-unlock lock unpowered. Wi-Fi loss disables new app commands;
-an already started pulse still ends after two seconds. This software does not
+an already started pulse still ends after one second. This software does not
 measure lock position or prove that the door opened.
 
 The same firmware also accepts authorized Matter door-lock commands: Unlock
-starts the two-second pulse and Lock ends it early. Repeated Unlock and app unlock
+starts the one-second pulse and Lock ends it early. Repeated Unlock and app unlock
 requests during an active pulse must not extend it. Verify app unlock followed by
 Matter Lock, a new release immediately after expiry, Wi-Fi loss during a pulse,
 and reboot with the lock disconnected before testing the installed lock.

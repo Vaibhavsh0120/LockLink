@@ -784,7 +784,7 @@ class _HomeSetupScreenState extends State<HomeSetupScreen>
                     Padding(
                       padding: EdgeInsets.only(bottom: 16),
                       child: Text(
-                        'Door Release is a Matter door lock. Unlock releases for 2 seconds; Lock stops it early. Its status reports the output, not the physical door position.',
+                        'Matter door lock: Unlock releases for 1 second. Lock stops it early. Status shows the output, not the door position.',
                       ),
                     ),
                   ],

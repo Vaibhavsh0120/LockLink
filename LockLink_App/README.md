@@ -1,13 +1,18 @@
 # LockLink app
 
-The v1.9.3 Flutter client for the local ESP32-S3 LockLink controller runs on Android,
+The v2.0.0 Flutter client for the local ESP32-C3 LockLink controller runs on Android,
 iOS, and the web. Choose light, dark, or system appearance in Settings.
 
 1. Run `flutter pub get` and `flutter run`.
-2. Open device settings and enter the ESP32's local HTTP address.
+2. Open device settings and enter the ESP32's local HTTP address. Fresh installs
+   default to `192.168.0.112`; existing saved addresses remain unchanged.
 3. In relay mode, enter the pairing passcode or 64-character signing key matching
    the ESP32's private configuration. Tap the center lock or **Unlock door**;
    the app handles the one-time challenge automatically.
+
+Fresh installs have no pairing key. Connection status remains available, but
+relay release, terminal and widget access require the key saved in Settings.
+Existing saved keys are retained; no public fallback key is used.
 
 Android and iOS keep the pairing key in platform secure storage. The web app
 keeps it only for the current tab session. Relay mode allows browser access

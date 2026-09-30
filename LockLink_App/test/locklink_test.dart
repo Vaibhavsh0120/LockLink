@@ -49,10 +49,7 @@ void main() {
       'http://192.168.1.50?x=1',
     ]) {
       expect(() => LockLinkApiService(address), throwsFormatException);
-      expect(
-        () => TerminalService(address, DeviceSettings.defaultPairingKey),
-        throwsFormatException,
-      );
+      expect(() => TerminalService(address, 'a' * 64), throwsFormatException);
     }
     final client = RedirectProbeClient();
     for (final method in ['GET', 'POST']) {
@@ -92,7 +89,7 @@ void main() {
     expect(client.requests, 2);
     api.close();
   });
-  test('derives the demo signing key while preserving existing hex keys', () {
+  test('derives text signing keys while preserving existing hex keys', () {
     expect(
       DeviceSettings.signingKey('1234'),
       '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
@@ -139,7 +136,7 @@ void main() {
           jsonEncode({
             'success': true,
             'state': 'unlocking',
-            'duration_ms': 2000,
+            'duration_ms': 1000,
           }),
           200,
         );
@@ -148,7 +145,7 @@ void main() {
     });
     final api = LockLinkApiService('http://192.168.1.50', client: client);
     expect((await api.getStatus()).state, 'locked');
-    expect(await api.unlockDoor(), const Duration(seconds: 2));
+    expect(await api.unlockDoor(), const Duration(seconds: 1));
     api.close();
   });
 
@@ -182,7 +179,7 @@ void main() {
           jsonEncode({
             'success': true,
             'state': 'unlocking',
-            'duration_ms': 2000,
+            'duration_ms': 1000,
           }),
           200,
         );
@@ -193,7 +190,7 @@ void main() {
     expect((await api.getStatus()).mode, 'relay');
     expect(
       await api.unlockDoor(relayMode: true, unlockKeyHex: key),
-      const Duration(seconds: 2),
+      const Duration(seconds: 1),
     );
     api.close();
   });

@@ -12,11 +12,14 @@ with tempfile.TemporaryDirectory(prefix="locklink-tests-") as temporary:
         "lock_state": ["test/native/lock_state_test.cpp"],
         "local_network": ["test/native/local_network_test.cpp", "src/local_network.cpp"],
         "release_output": ["test/native/release_output_test.cpp", "src/release_output.cpp"],
+        "led_output": ["test/native/release_output_test.cpp", "src/release_output.cpp"],
     }.items():
         binary = str(Path(temporary) / (name + (".exe" if os.name == "nt" else "")))
         subprocess.run([
             os.environ.get("CXX", "g++"), "-std=c++17", "-Wall", "-Wextra", "-Werror",
-            "-Itest/native/fakes", "-Iinclude", "-DLOCKLINK_RELAY_ENABLED=1", "-DLOCKLINK_IGNORE_PRIVATE_CONFIG=1",
+            "-Itest/native/fakes", "-Iinclude",
+            "-DLOCKLINK_RELAY_ENABLED=" + ("0" if name == "led_output" else "1"),
+            "-DLOCKLINK_IGNORE_PRIVATE_CONFIG=1",
             *sources, "-o", binary,
         ], cwd=ROOT, check=True)
         subprocess.run([binary], check=True)

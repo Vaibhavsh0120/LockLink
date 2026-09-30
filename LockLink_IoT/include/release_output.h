@@ -13,7 +13,6 @@ class ReleaseOutput {
   void stop();
   void shutdown();
   bool active();
-  void updateIndicator();
 
  private:
   static void timerCallback(void* context);
@@ -22,6 +21,5 @@ class ReleaseOutput {
   SemaphoreHandle_t mutex_ = nullptr;
   esp_timer_handle_t timer_ = nullptr;
   LockState state_;
-  bool indicatorState_ = false;
   bool enabled_ = false;
 };

@@ -1,15 +1,15 @@
-# Firmware and prototype boundaries
+# Firmware and output boundaries
 
 `LockLink_IoT` is the single firmware for the Matter **Door Release** door lock
 and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning,
 or seeded from optional private config credentials when no network is saved.
-Both control routes share one two-second release controller. Matter Unlock starts
+Both control routes share a one-second release controller. Matter Unlock starts
 a pulse, Lock stops it early, and repeated Unlock does not extend it.
 
 The local HTTP API remains intentionally small:
 
 - `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true,"matter_accessory":"door_lock","physical_state_known":false}`
-- `POST /unlock` in LED mode → `{"success":true,"state":"unlocking","duration_ms":2000}`
+- `POST /unlock` in LED mode → `{"success":true,"state":"unlocking","duration_ms":1000}`
 - Repeated `POST /unlock` during a pulse → HTTP 409.
 
 In relay mode, status reports `"mode":"relay"` and `armed` indicates whether
@@ -27,9 +27,10 @@ setup and connected-home management in both LED and relay modes. They always
 require a configured firmware key. See the [terminal contract](TERMINAL_PLAN.md).
 
 The output logic lives in `LockLink_IoT/src/release_output.cpp`. The default
-driver uses the onboard addressable RGB LED on GPIO 48. Explicit relay mode
-drives GPIO 2 while the RGB LED stays an indicator. An ESP timer task ends
-the relay pulse independently of network handling, even if Wi-Fi drops. See
+driver uses GPIO4 for the active-HIGH relay and GPIO8 for the active-LOW blue
+LED on ESP32-C3 Super Mini. Both outputs are switched off by the same ESP timer
+task independently of network handling, even if Wi-Fi drops. There is no RGB
+LED driver. Optional LED mode never configures or writes the relay pin. See
 [relay setup](RELAY_SETUP.md) for the physical wiring and pairing steps.
 
 LED mode allows cross-origin browser requests on a trusted local network.
@@ -37,7 +38,9 @@ Relay mode requires a signed, single-use challenge for every unlock and
 restricts browser origins to one explicitly configured local origin. Neither
 mode should be exposed to the public internet.
 
-The public configuration starts in LED mode with an empty app signing key.
+The public configuration starts in relay mode with an empty app signing key,
+so its relay is unarmed. Set `LOCKLINK_RELAY_ENABLED 0` for a disconnected-relay
+LED test; set it back to `1` and configure the key before installation.
 Keep local keys and pin overrides in `LockLink_IoT/include/private_config.h`.
 An invalid or missing key leaves relay mode unarmed for both Matter and app
 commands. The app's saved key and the Matter commissioning code are different

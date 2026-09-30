@@ -1,4 +1,4 @@
-# Device offline and recovery (v1.9.3)
+# Device offline and recovery (v2.0.0)
 
 LockLink cannot tell a powered-off ESP32 from a wrong address, a different Wi-Fi
 network, blocked local traffic, or a lost reply. It reports an unreachable device
@@ -61,7 +61,7 @@ responses, command gating, uncertain unlock outcomes and abort signaling/client
 reuse. Mock setup/Terminal previews do not establish real Wi-Fi recovery.
 Physical power cycling, router loss/rejoin, native socket cancellation,
 ecosystem recovery and iOS compilation require their own hardware/platform checks.
-See [v1.9.3 release notes](releases/v1.9.3.md) for this version's actual results.
+See [v2.0.0 release notes](releases/v2.0.0.md) for this version's actual results.
 
 Connected-home changes sync from the door on each foreground LockLink client.
 Codes are hidden when another client replaces the pairing window. A home removed

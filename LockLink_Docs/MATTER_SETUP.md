@@ -1,8 +1,8 @@
 # Apple Home, Google Home, and Alexa
 
-The v1.9.3 `LockLink_IoT` firmware exposes **Door Release** as a Matter
+The v2.0.0 `LockLink_IoT` firmware exposes **Door Release** as a Matter
 **Door Lock** accessory alongside the LockLink app HTTP API. **Unlock** starts
-a two-second release; the output then turns off and reports **Locked**.
+a one-second release; the output then turns off and reports **Locked**.
 **Lock** ends an active release early. Repeated Unlock commands during a
 release succeed without extending it. Unsupported cluster commands cannot
 actuate the output.
@@ -28,7 +28,7 @@ the output.
 On the active LockLink home screen, the app reads this same state 500 ms after
 each completed status request. It also refreshes when you return from the
 background or device settings. It follows the device after an app command
-instead of displaying an independent two-second countdown. Slow requests do
+instead of displaying an independent one-second countdown. Slow requests do
 not overlap; offline retries wait five seconds. Commands are never retried
 automatically.
 
@@ -65,18 +65,19 @@ Voice processing may depend on the assistant's Internet service.
 
 ## Build and configure
 
-The `LockLink_IoT/` project uses one environment, `esp32-s3-n16r8`, pinned to
+The `LockLink_IoT/` project uses one environment, `esp32-c3-supermini`, pinned to
 pioarduino 55.03.312-1 with Arduino-ESP32 3.3.12 and its bundled ESP-Matter SDK.
 Matter and the app API run together and share the output controller.
 
 1. Install PlatformIO Core, then open a terminal in `LockLink_IoT/`.
 2. Copy `include/private_config.example.h` to `include/private_config.h` only
-   if it does not exist; preserve existing private keys and pin settings.
+   if it does not exist; preserve existing private keys and Wi-Fi settings.
    This file is ignored by Git. Start with `LOCKLINK_RELAY_ENABLED 0` to test
-   the board LED. The default board LED is GPIO 48; revision 1.1 boards may
-   need `LOCKLINK_INDICATOR_GPIO 38` in the private configuration.
+   the board LED with the relay disconnected. For C3 Super Mini use
+   `LOCKLINK_INDICATOR_GPIO 8` (blue, active LOW), and `LOCKLINK_RELAY_GPIO 4`.
+   Replace old S3 pin settings. See [C3 migration](ESP32_C3_SETUP.md).
 3. For the real relay, follow [the wiring guide](RELAY_SETUP.md), set
-   `LOCKLINK_RELAY_ENABLED 1`, and confirm `LOCKLINK_RELAY_GPIO`. The active-HIGH
+   `LOCKLINK_RELAY_ENABLED 1` (the default), and confirm GPIO4. The active-HIGH
    driver powers the lock to **unlock**, not to lock.
 4. Configure a strong, 64-character hexadecimal `LOCKLINK_UNLOCK_KEY_HEX` for
    the app. Generate one locally with
@@ -84,8 +85,8 @@ Matter and the app API run together and share the output controller.
    hex value in the app once. The key is stored and used automatically; there
    is no password prompt per release. Relay mode remains disabled if this key
    is missing or malformed. Do not post the key in an issue or screenshot.
-5. Run `pio run -e esp32-s3-n16r8`. When ready to install on the board, run
-   `pio run -e esp32-s3-n16r8 -t upload`, then `pio device monitor -b 115200`.
+5. Run `pio run -e esp32-c3-supermini`. When ready to install on the board, run
+   `pio run -e esp32-c3-supermini -t upload`, then `pio device monitor -b 115200`.
    Close other serial monitors before uploading.
 
 Wi-Fi can be supplied over BLE during Matter pairing, or configured with
@@ -128,7 +129,7 @@ and diagnose any commissioning problem before choosing a reset or flash erase.
 
 ## Apple Home first
 
-1. Enable Bluetooth on the iPhone and connect it to the home network. ESP32-S3
+1. Enable Bluetooth on the iPhone and connect it to the home network. ESP32-C3
    uses 2.4 GHz Wi-Fi; the phone may use 5 GHz if both bands share the same LAN.
    Avoid guest/client-isolated networks. Local IPv6 and multicast/mDNS must
    work; public Internet IPv6 service is not required for local Matter traffic.
@@ -146,7 +147,7 @@ and diagnose any commissioning problem before choosing a reset or flash erase.
    a guarantee that incomplete firmware or every future iOS version will pair.
 5. Assign the name **Door Release** and a room. It uses the standard Door Lock
    device type and Door Lock cluster.
-6. Unlock it and check that the LED turns off after two seconds. Then test
+6. Unlock it and check that the LED turns off after one second. Then test
    **"Siri, unlock Door Release"** and any authentication the phone requires.
    Verify on each phone before connecting a real lock. Apple account permissions still apply; shared-home access
    between different Apple accounts must be checked without a home hub.

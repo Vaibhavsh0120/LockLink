@@ -63,7 +63,11 @@ void main() {
         ))
         .load();
   });
-  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  setUp(
+    () => FlutterSecureStorage.setMockInitialValues({
+      'unlock_key:${DeviceSettings.defaultAddress}': 'a' * 64,
+    }),
+  );
   http.Response reply(String command, {bool paired = false}) => http.Response(
     jsonEncode({
       'version': 1,

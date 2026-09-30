@@ -9,10 +9,12 @@
 #define LOCKLINK_WIFI_SSID ""
 #define LOCKLINK_WIFI_PASSWORD ""
 
-// First test using the board's RGB LED. Enable only after verifying relay wiring.
-#define LOCKLINK_RELAY_ENABLED 0
-#define LOCKLINK_RELAY_GPIO 2
-#define LOCKLINK_INDICATOR_GPIO 48 // Use 38 on boards with the RGB LED on GPIO 38.
+// ESP32-C3 Super Mini: HIGH energizes the relay for one second; LOW is idle.
+// Use mode 0 with the relay disconnected for a blue-LED-only first test.
+// Relay mode remains unarmed until the valid private app key below is set.
+#define LOCKLINK_RELAY_ENABLED 1
+#define LOCKLINK_RELAY_GPIO 4
+#define LOCKLINK_INDICATOR_GPIO 8 // Blue LED, active LOW (not an RGB LED).
 
 // App authentication is separate from Matter pairing and any voice PIN.
 // Generate a strong hex key: python -c "import secrets; print(secrets.token_hex(32))"

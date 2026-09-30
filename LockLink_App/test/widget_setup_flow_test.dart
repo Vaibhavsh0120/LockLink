@@ -16,7 +16,9 @@ void main() {
   testWidgets('iOS setup explains signing failure and recovers after retry', (
     tester,
   ) async {
-    FlutterSecureStorage.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({
+      'unlock_key:${DeviceSettings.defaultAddress}': 'a' * 64,
+    });
     var failureCode = 'widget_app_group';
     final calls = <String>[];
     messenger.setMockMethodCallHandler(channel, (call) async {

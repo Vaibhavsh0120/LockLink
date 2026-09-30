@@ -35,7 +35,7 @@ void main() {
       await WidgetBridge.synchronize(settings);
       expect(calls.single.method, 'configure');
       expect(calls.single.arguments, {
-        'address': 'http://192.168.0.111',
+        'address': 'http://192.168.0.112',
         'signingKey':
             '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',
       });
@@ -55,6 +55,7 @@ void main() {
         return null;
       });
       final settings = DeviceSettings(preferences: MemoryPreferences());
+      await settings.saveUnlockKey(DeviceSettings.defaultAddress, '1234');
       await expectLater(
         WidgetBridge.synchronize(settings),
         throwsA(isA<PlatformException>()),
@@ -63,6 +64,24 @@ void main() {
       fail = false;
       await WidgetBridge.synchronize(settings);
       expect(calls.last, 'configure');
+    },
+  );
+
+  test(
+    'an unset key clears stale widget access without configuring it',
+    () async {
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+      await expectLater(
+        WidgetBridge.synchronize(
+          DeviceSettings(preferences: MemoryPreferences()),
+        ),
+        throwsA(isA<MissingPairingKeyException>()),
+      );
+      expect(calls, ['clear']);
     },
   );
 

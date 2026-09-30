@@ -1,9 +1,11 @@
-# Gate widgets (v1.9.3)
+# Gate widgets (v2.0.0)
 
 The widget's **Unlock gate** button sends the existing local status/challenge/
 signed-unlock sequence without launching Flutter. It uses the address and pairing
-value already saved in Settings, including the defaults on a fresh installation.
-Open LockLink once after installing/upgrading and allow local-network access.
+key explicitly saved in Settings. Fresh installs have no key; save the device
+address and matching private key before setting up widgets. Missing credentials
+clear stale widget configuration. Open LockLink once after installing/upgrading
+and allow local-network access.
 
 ## Android
 
@@ -114,5 +116,5 @@ Earlier compact Android layouts were inflated as RemoteViews in an Android 13
 emulator and inspected in light/dark mode with 130% text scaling. This is prior
 development evidence, not validation of every later app version. Launcher
 placement and physical gate operation remain separate device checks; iOS layout
-needs macOS/device validation. See [v1.9.3 release notes](releases/v1.9.3.md)
+needs macOS/device validation. See [v2.0.0 release notes](releases/v2.0.0.md)
 for current checks.

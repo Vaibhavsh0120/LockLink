@@ -11,9 +11,7 @@ class DeviceSettings {
     : _preferences = preferences ?? SharedPreferencesAsync();
 
   static const _addressKey = 'device_address';
-  static const defaultAddress = 'http://192.168.0.111';
-  static const defaultPairingKey =
-      'd489653731bf3aeec85cca136a511294c329106e20a0b2627adc2f180146a507';
+  static const defaultAddress = 'http://192.168.0.112';
   static const _themeKey = 'theme_mode';
   static const _hapticsKey = 'haptic_feedback_enabled';
   static const _secureStorage = FlutterSecureStorage();
@@ -45,11 +43,14 @@ class DeviceSettings {
     final saved = kIsWeb
         ? _webSessionKeys[address]
         : await _secureStorage.read(key: 'unlock_key:$address');
-    return saved ?? defaultPairingKey;
+    return saved ?? '';
   }
 
-  Future<String> loadUnlockKey(String address) async =>
-      signingKey(await loadPairingKey(address));
+  Future<String> loadUnlockKey(String address) async {
+    final raw = await loadPairingKey(address);
+    if (raw.trim().isEmpty) throw const MissingPairingKeyException();
+    return signingKey(raw);
+  }
 
   static String signingKey(String raw) {
     final value = raw.trim();
@@ -110,4 +111,12 @@ class DeviceSettings {
     if (!isLocal) return null;
     return uri.replace(path: '').toString().replaceAll(RegExp(r'/$'), '');
   }
+}
+
+class MissingPairingKeyException implements Exception {
+  const MissingPairingKeyException();
+  static const message = 'Add a pairing key in Settings.';
+
+  @override
+  String toString() => message;
 }

@@ -1,8 +1,17 @@
 #pragma once
 #include <cstdint>
+#include <cassert>
 constexpr int LOW = 0, HIGH = 1, OUTPUT = 1;
 extern int relayLevel;
-extern int indicatorGreen;
-inline void digitalWrite(uint8_t pin, int level) { if (pin == 2) relayLevel = level; }
-inline void pinMode(uint8_t, int) {}
-inline void rgbLedWrite(uint8_t, int, int green, int) { indicatorGreen = green; }
+extern int indicatorLevel;
+extern bool relayOutputEnabled, indicatorOutputEnabled;
+inline void digitalWrite(uint8_t pin, int level) {
+  if (pin == 4) { assert(relayOutputEnabled); relayLevel = level; }
+  if (pin == 8) { assert(indicatorOutputEnabled); indicatorLevel = level; }
+}
+inline void pinMode(uint8_t pin, int mode) {
+  assert(mode == OUTPUT);
+  // Establish inactive levels before enabling either output driver.
+  if (pin == 4) { assert(relayLevel == LOW); relayOutputEnabled = true; }
+  if (pin == 8) { assert(indicatorLevel == HIGH); indicatorOutputEnabled = true; }
+}

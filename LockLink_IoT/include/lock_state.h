@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "config.h"
 
 // Commanded release state only; there is no physical door-position sensor.
 // The caller serializes access and supplies a monotonic millisecond clock.
@@ -14,7 +15,7 @@ class LockState {
   }
   void lock() { active_ = false; }
   bool expire(uint32_t now) {
-    if (!active_ || uint32_t(now - started_) < 2000) return false;
+    if (!active_ || uint32_t(now - started_) < matter_config::pulseMs) return false;
     active_ = false;
     return true;
   }

@@ -46,6 +46,9 @@ class WidgetBridge {
 
   /// Translate known native failure codes; never display raw platform details.
   static String setupFailureMessage(Object error) {
+    if (error is MissingPairingKeyException) {
+      return MissingPairingKeyException.message;
+    }
     if (error is MissingPluginException) {
       return 'Widget support is missing from this app build. '
           'Install the latest full LockLink app, then set up widgets again.';

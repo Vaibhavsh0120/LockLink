@@ -6,6 +6,7 @@ on:
   pull_request:
     paths: ['LockLink_IoT/**', '.github/workflows/firmware.yml']
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -23,23 +24,18 @@ jobs:
         run: python -m pip install platformio==6.2.0
       - name: Test native firmware behavior
         run: python LockLink_IoT/tools/test_native.py
-      - name: Build unified app and Matter firmware (LED mode)
-        run: pio run -d LockLink_IoT -e esp32-s3-n16r8
+      - name: Require public configuration for published artifacts
+        run: test ! -e LockLink_IoT/include/private_config.h
+      - name: Build ESP32-C3 app and Matter firmware (unarmed public configuration)
+        run: pio run -d LockLink_IoT -e esp32-c3-supermini
       - name: Verify all firmware images
-        run: |
-          set -euo pipefail
-          for image in firmware.bin bootloader.bin partitions.bin firmware.factory.bin; do
-            test -s "LockLink_IoT/.pio/build/esp32-s3-n16r8/$image" || {
-              echo "::error::Missing or empty firmware image: $image"
-              exit 1
-            }
-          done
+        run: python LockLink_IoT/tools/verify_firmware.py
       - uses: actions/upload-artifact@v7
         with:
-          name: locklink-iot-led-firmware
+          name: locklink-esp32-c3-supermini-firmware
           path: |
-            LockLink_IoT/.pio/build/esp32-s3-n16r8/firmware.bin
-            LockLink_IoT/.pio/build/esp32-s3-n16r8/bootloader.bin
-            LockLink_IoT/.pio/build/esp32-s3-n16r8/partitions.bin
-            LockLink_IoT/.pio/build/esp32-s3-n16r8/firmware.factory.bin
+            LockLink_IoT/.pio/build/esp32-c3-supermini/firmware.bin
+            LockLink_IoT/.pio/build/esp32-c3-supermini/bootloader.bin
+            LockLink_IoT/.pio/build/esp32-c3-supermini/partitions.bin
+            LockLink_IoT/.pio/build/esp32-c3-supermini/firmware.factory.bin
           if-no-files-found: error

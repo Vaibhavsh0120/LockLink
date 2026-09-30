@@ -1,6 +1,13 @@
 #pragma once
 #include <stdint.h>
 
+#if defined(ARDUINO_ARCH_ESP32)
+#include <sdkconfig.h>
+#if !defined(CONFIG_IDF_TARGET_ESP32C3)
+#error "LockLink v2.0.0 requires the ESP32-C3 Super Mini target"
+#endif
+#endif
+
 // One configuration for app control and all Matter ecosystems.
 #if !defined(LOCKLINK_IGNORE_PRIVATE_CONFIG) && __has_include("private_config.h")
 #include "private_config.h"
@@ -16,20 +23,20 @@
 #define LOCKLINK_UNLOCK_KEY_HEX ""
 #endif
 #ifndef LOCKLINK_RELAY_ENABLED
-#define LOCKLINK_RELAY_ENABLED 0
+#define LOCKLINK_RELAY_ENABLED 1
 #endif
 #ifndef LOCKLINK_RELAY_GPIO
-#define LOCKLINK_RELAY_GPIO 2
+#define LOCKLINK_RELAY_GPIO 4
 #endif
 #ifndef LOCKLINK_INDICATOR_GPIO
-#define LOCKLINK_INDICATOR_GPIO 48
+#define LOCKLINK_INDICATOR_GPIO 8
 #endif
 #ifndef LOCKLINK_ALLOWED_WEB_ORIGIN
 #define LOCKLINK_ALLOWED_WEB_ORIGIN ""
 #endif
 
 namespace config {
-constexpr char version[] = "1.9.3";
+constexpr char version[] = "2.0.0";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");
@@ -40,16 +47,17 @@ constexpr const char* allowedWebOrigin = LOCKLINK_ALLOWED_WEB_ORIGIN;
 constexpr uint8_t indicatorPin = LOCKLINK_INDICATOR_GPIO;
 constexpr uint8_t outputPin = LOCKLINK_RELAY_GPIO;
 constexpr bool outputActiveHigh = true;
-static_assert(!relayEnabled || (outputPin <= 48 &&
-    outputPin != indicatorPin && outputPin != 0 && outputPin != 3 &&
-    outputPin != 19 && outputPin != 20 &&
-    (outputPin < 22 || outputPin > 37) &&
-    outputPin != 43 && outputPin != 44 &&
-    outputPin != 45 && outputPin != 46),
-    "Choose a safe relay GPIO, separate from the RGB LED");
+constexpr bool indicatorActiveHigh = false;
+// Super Mini exposed pins only; exclude boot straps and the blue LED.
+static_assert(!relayEnabled || (outputPin <= 10 && outputPin != 2 &&
+    outputPin != 8 && outputPin != 9 && outputPin != indicatorPin),
+    "Choose a C3 Super Mini relay GPIO (default 4), excluding boot straps/LED");
+static_assert(indicatorPin <= 10 && indicatorPin != 2 && indicatorPin != 9,
+    "Choose a C3 Super Mini indicator GPIO (blue LED is 8)");
 }
 
 namespace matter_config {
 constexpr const char* deviceName = "Door Release";
-constexpr uint32_t pulseUs = 2000000;
+constexpr uint32_t pulseMs = 1000;
+constexpr uint32_t pulseUs = pulseMs * 1000;
 }

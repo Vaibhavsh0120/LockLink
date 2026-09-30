@@ -43,7 +43,28 @@ Map<String, Object?> reply({bool window = true, bool added = false}) => {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  setUp(
+    () => FlutterSecureStorage.setMockInitialValues({
+      'unlock_key:${DeviceSettings.defaultAddress}': 'a' * 64,
+    }),
+  );
+
+  test(
+    'terminal without a saved key explains setup and sends no requests',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final session = TerminalSession(
+        DeviceSettings(preferences: MemoryPreferences()),
+      );
+      addTearDown(session.dispose);
+      await http.runWithClient(
+        session.start,
+        () => MockClient((_) async => throw StateError('Unexpected request')),
+      );
+      expect(session.connected, isFalse);
+      expect(session.error, 'Add a pairing key in Settings.');
+    },
+  );
 
   testWidgets('setup and check buttons stay enabled during background polls', (
     tester,

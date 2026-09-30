@@ -1,22 +1,25 @@
 # LockLink
 
-Current source version: **v1.9.3**.
+Current source version: **v2.0.0**.
 
-LockLink is a local network door controller for ESP32-S3 N16R8. The default
-configuration remains an RGB LED prototype. An explicitly enabled relay mode
-can pulse a power-to-unlock 12 V lock for two seconds.
+LockLink is a local network door controller for ESP32-C3 Super Mini (4 MB flash,
+no PSRAM). GPIO4 drives the active-HIGH relay for **one second**; GPIO8 drives
+the onboard active-LOW blue LED. Relay mode is the default, and requires a valid
+private app key before any app or Matter command can energize the relay.
+
+Start with the [C3 installation and migration guide](LockLink_Docs/ESP32_C3_SETUP.md).
 
 ## Folders
 
 - `LockLink_App/` — Flutter app for Android, iOS, and web.
-- `LockLink_IoT/` — the single ESP32-S3 firmware: Matter **Door Release** plus
-  the LockLink app's local HTTP API, sharing one two-second output controller.
+- `LockLink_IoT/` — the single ESP32-C3 firmware: Matter **Door Release** plus
+  the LockLink app's local HTTP API, sharing a one-second output controller.
 - `LockLink_Docs/` — wiring and release notes.
 
 ## Apple Home, Siri, Google Home, and Alexa
 
 The firmware exposes **Door Release** as a Matter door lock. **Unlock** requests
-a two-second release; **Lock** ends it early. Repeated Unlock commands do not
+a one-second release; **Lock** ends it early. Repeated Unlock commands do not
 extend the pulse. Reported Locked/Unlocked states describe the release output,
 not the physical door position. Anyone authorized by a paired controller to
 unlock the accessory can release the door; Wi-Fi membership alone does not
@@ -36,22 +39,20 @@ physical verification requirements. Actual ecosystem pairing remains unverified.
 
 ## LED test
 
-1. The public example uses the board's addressable RGB LED on GPIO 48. The
-   ESP32-S3-DevKitC-1 v1.1 uses GPIO 38 instead; set
-   `LOCKLINK_INDICATOR_GPIO` in the private configuration to match your
-   board. Confirm the indicator pin before flashing a different board revision.
+1. Disconnect the relay. The Super Mini blue LED is GPIO8, active LOW. The
+   firmware uses this physical GPIO directly, rather than an RGB LED driver.
 2. Copy `LockLink_IoT/include/private_config.example.h` to
    `LockLink_IoT/include/private_config.h` only if it does not exist. Preserve
    existing private values. Set `LOCKLINK_RELAY_ENABLED 0` for this LED test.
    Wi-Fi credentials can be supplied over Bluetooth during Matter pairing,
    or set `LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` in the private
    config to connect before Home pairing. Saved networks take priority.
-3. In `LockLink_IoT`, run `pio run -e esp32-s3-n16r8 -t upload`, then
+3. In `LockLink_IoT`, run `pio run -e esp32-c3-supermini -t upload`, then
    `pio device monitor -b 115200`. This environment pins pioarduino
    `55.03.312-1` / Arduino-ESP32 `3.3.12` and the Matter partition layout.
 4. Follow the [Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md)
-   to pair, then **Unlock Door Release**. The LED should turn off after two
-   seconds. USB `STATUS` reports current connectivity; `PAIR` shows setup
+   to pair, then **Unlock Door Release**. The LED should turn off after one
+   second. USB `STATUS` reports current connectivity; `PAIR` shows setup
    information. Keep the pairing code private.
 5. Use the IPv4 address reported after commissioning for
    `curl http://DEVICE_IP/status`. In LED mode only,
@@ -77,7 +78,7 @@ network changes, unconfirmed commands, widgets and first-time setup.
 ## Real lock
 
 Read [relay setup](LockLink_Docs/RELAY_SETUP.md) before connecting the lock.
-Relay mode requires an explicit firmware switch and a matching pairing key.
+Relay mode is enabled by default and requires a matching private app key.
 Generate a private 64-character hexadecimal key for `LOCKLINK_UNLOCK_KEY_HEX`
 and enter the same key once in the app. An empty or invalid key leaves relay
 mode unarmed. The app accepts a 4–64 character pairing value and derives its signing
@@ -102,12 +103,14 @@ it does not establish an ongoing failure. Check the later state before
 changing configuration. See [recovery guidance](LockLink_Docs/MATTER_SETUP.md#pairing-information-reset-and-recovery)
 for persistent connection problems. `RESET MATTER` deliberately clears Matter
 pairing/network settings; ordinary firmware updates should not erase them.
+Use the normal PlatformIO upload for updates. The combined factory image
+wipes NVS and is for initial installation or deliberate recovery.
 
 ## Mobile releases
 
-Version **1.9.3** includes the current app, terminal, connected-home management
+Version **2.0.0** includes the current app, terminal, connected-home management
 and native widget behavior. Both the center circular control and the Unlock
-button request the same release. See [v1.9.3 release notes](LockLink_Docs/releases/v1.9.3.md)
+button request the same release. See [v2.0.0 release notes](LockLink_Docs/releases/v2.0.0.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 
@@ -118,15 +121,20 @@ a direct installation with the extension signed; LiveContainer guest installs
 cannot expose the widget to iOS.
 
 Push this repository to GitHub, then open **Actions → Manual mobile release →
-Run workflow** and enter `v1.9.3`. After verification and both
-builds succeed, the workflow creates or updates a GitHub Release containing
+Run workflow** and enter `v2.0.0`. After workflow validation, C3 firmware checks,
+and both mobile builds succeed, the workflow creates or updates a GitHub Release containing
 `LockLink-Android.apk` and `LockLink-iOS-unsigned.ipa`.
 The tag must match the app source version and resolve to the workflow's source
-commit if it already exists. Same-tag release runs are serialized. The macOS
+commit if it already exists. README, firmware, app footer, widget versions and
+current release notes must agree. Same-tag release runs are serialized. The macOS
 job also runs native widget tests and retains diagnostic logs and test results.
 App pushes and pull requests also run **Mobile checks** for version consistency,
 Flutter analysis/tests, Android compilation, and native widget tests. Firmware
 checks build all four firmware images and run the native behavior suites.
+Android workflows use Java 17. **Workflow checks** uses a pinned, checksum-verified
+actionlint binary to validate all workflow files. The release reuses those
+checks and refuses publication if any required job fails. Public firmware
+artifacts are unarmed and exclude private configuration.
 
 The APK uses the Flutter template's test signing configuration and is for
 installation/testing, not Play Store distribution. The IPA is **unsigned**;

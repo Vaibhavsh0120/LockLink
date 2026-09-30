@@ -1,4 +1,4 @@
-# Add your ESP32-S3 to Apple Home
+# Add your ESP32-C3 to Apple Home
 
 Use `LockLink_IoT`, the single firmware for Apple Home and the LockLink app.
 Start with the relay disconnected and test the onboard LED first. If you
@@ -37,16 +37,18 @@ This follows Espressif's [Wi-Fi pairing over Bluetooth example](https://github.c
 
 ## 1. Flash the board
 
-Connect the ESP32-S3 by USB. On this Windows computer, open PowerShell and run:
+Connect the ESP32-C3 by USB. On this Windows computer, open PowerShell and run:
 
 ```powershell
 cd D:\_Root\Downloads\LockLink\LockLink_IoT
 $pio = "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe"
-& $pio run -e esp32-s3-n16r8 -t upload
+& $pio run -e esp32-c3-supermini -t upload
 & $pio device monitor -b 115200
 ```
 
-The public example uses the LED on GPIO 48. If upload cannot pick
+The C3 Super Mini uses the blue GPIO8 LED, active LOW. For the disconnected-relay
+LED test, explicitly set `LOCKLINK_RELAY_ENABLED 0`; the default is relay mode.
+See [C3 migration and USB recovery](ESP32_C3_SETUP.md). If upload cannot pick
 the USB port, add `--upload-port COMx` using your board's actual port.
 
 Press the board's reset button after opening the monitor. Look for the **manual
@@ -63,11 +65,11 @@ to show it while the device is unpaired.
 4. If Home warns that the accessory is uncertified and offers **Add Anyway**,
    choose it for this personal development board.
 5. Name it **Door Release** and choose a room.
-6. **Unlock Door Release**. The board LED should turn on for two seconds,
+6. **Unlock Door Release**. The board LED should turn on for one second,
    then turn off by itself.
 7. Test **“Siri, unlock Door Release”** and any authentication required on the phone.
 
-The v1.9.3 firmware appears as a Matter door lock. Its Locked/Unlocked states
+The v2.0.0 firmware appears as a Matter door lock. Its Locked/Unlocked states
 describe only the inactive/active release output; they do not verify the latch
 or door position. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
 documents Add Anyway; actual pairing and Siri operation on your iPhones
@@ -92,7 +94,7 @@ before resetting anything.
 4. Close the serial monitor with Ctrl+C, then run the upload command again.
    Normal firmware updates with the same Matter partition layout preserve
    pairing; do not erase the flash for an ordinary update.
-5. Test one two-second release, early Lock, repeated Unlock, Wi-Fi loss during a
+5. Test one one-second release, early Lock, repeated Unlock, Wi-Fi loss during a
    release, and reboot. The relay must never stay energized after the pulse.
 
 The key is saved by the app; you do not enter a password each time. Matter uses

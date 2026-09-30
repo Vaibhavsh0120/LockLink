@@ -133,7 +133,7 @@ bool configurePairing() {
   uint32_t passcode = prefs.getUInt("passcode", 0);
   uint16_t discriminator = prefs.getUShort("discriminator", 0xffff);
   if (passcode == 0 || discriminator > 4095) {
-    // The radios have not started yet. Enable the ESP32-S3 hardware entropy
+    // The radios have not started yet. Enable the ESP32-C3 hardware entropy
     // source while generating the per-device commissioning credentials.
     bootloader_random_enable();
     do {
@@ -201,7 +201,7 @@ class ReleaseCommands : public chip::app::CommandHandlerInterface {
     if (acceptingCommands && armed && !resetting) {
       if (unlock) {
         const auto result = output->release();
-        // Repeated Unlock succeeds without restarting the two-second cutoff.
+        // Repeated Unlock succeeds without restarting the one-second cutoff.
         if (result == ReleaseOutput::Result::started ||
             result == ReleaseOutput::Result::busy) status = Status::Success;
       } else {
@@ -490,7 +490,7 @@ void printPairing() {
   info->GetProductId(product);
   Serial.printf("Matter test VID: 0x%04X, PID: 0x%04X\n", vendor, product);
   Serial.println("Accessory: Door Release (Matter door lock)");
-  Serial.println("Unlock releases for 2 seconds; Lock ends release. No door-position sensor.");
+  Serial.println("Unlock releases for 1 second; Lock ends release. No door-position sensor.");
   if (!Matter.isDeviceCommissioned()) {
     Serial.println("Keep this one-time setup code private:");
     Serial.println(Matter.getManualPairingCode());
@@ -513,7 +513,6 @@ void resetPairing() {
   if (!started) return;
   resetting = true;
   output->shutdown();
-  output->updateIndicator();
   console.println("Resetting Matter pairing and Wi-Fi. App key is unchanged.");
   Matter.decommission();
 }

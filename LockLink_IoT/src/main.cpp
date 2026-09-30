@@ -13,9 +13,10 @@ LocalApi localApi(output, auth);
 bool ready = false;
 
 void setup() {
+  const bool outputReady = output.begin();
   Serial.begin(115200);
   console.begin();
-  if (!output.begin()) {
+  if (!outputReady) {
     console.println("Output failed. Release disabled.");
     return;
   }
@@ -38,7 +39,6 @@ void setup() {
 void loop() {
   if (!ready) { delay(100); return; }
   matter_release::poll();
-  output.updateIndicator();
   localApi.poll();
   static bool lastRelease = false;
   const bool releasing = output.active();

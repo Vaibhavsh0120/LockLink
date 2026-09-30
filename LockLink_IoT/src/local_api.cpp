@@ -63,7 +63,8 @@ void LocalApi::begin() {
     } else if (result != ReleaseOutput::Result::started) {
       json(503, "{\"error\":\"output_unavailable\"}");
     } else {
-      json(200, "{\"success\":true,\"state\":\"unlocking\",\"duration_ms\":2000}");
+      json(200, "{\"success\":true,\"state\":\"unlocking\",\"duration_ms\":" +
+           String(matter_config::pulseMs) + "}");
     }
   });
   server_.on("/terminal/challenge", HTTP_GET, [this]() {

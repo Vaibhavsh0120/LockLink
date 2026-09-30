@@ -63,6 +63,11 @@ class TerminalSession extends ChangeNotifier {
       if (_disposed) return;
       _service = TerminalService(address, key);
       await send('STATUS');
+    } on MissingPairingKeyException {
+      if (!_disposed) {
+        error = MissingPairingKeyException.message;
+        notifyListeners();
+      }
     } catch (_) {
       if (!_disposed) {
         error = 'Could not load device settings. Reopen this screen to retry.';

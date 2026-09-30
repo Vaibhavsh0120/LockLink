@@ -199,7 +199,7 @@ void main() {
     });
   });
 
-  testWidgets('local release follows early Off without a two-second UI timer', (
+  testWidgets('local release follows early Off without a fixed UI timer', (
     tester,
   ) async {
     var released = false;
@@ -211,7 +211,7 @@ void main() {
           commands++;
           released = true;
           return http.Response(
-            '{"success":true,"state":"unlocking","duration_ms":2000}',
+            '{"success":true,"state":"unlocking","duration_ms":1000}',
             200,
           );
         }
@@ -241,7 +241,7 @@ void main() {
       (request) async {
         if (request.method == 'POST') {
           return http.Response(
-            '{"success":true,"state":"unlocking","duration_ms":2000}',
+            '{"success":true,"state":"unlocking","duration_ms":1000}',
             200,
           );
         }

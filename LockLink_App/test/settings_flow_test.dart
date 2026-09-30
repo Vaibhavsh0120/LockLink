@@ -26,7 +26,7 @@ class MemoryPreferences implements SharedPreferencesAsync {
 
 void main() {
   testWidgets(
-    'settings applies themes and saves editable default credentials',
+    'settings applies themes and saves explicitly entered credentials',
     (tester) async {
       const widgetChannel = MethodChannel('com.locklink/widgets');
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -55,11 +55,11 @@ void main() {
           final fields = find.byType(TextFormField);
           expect(
             tester.widget<TextFormField>(fields.at(0)).controller!.text,
-            '192.168.0.111',
+            '192.168.0.112',
           );
           expect(
             tester.widget<TextFormField>(fields.at(1)).controller!.text,
-            DeviceSettings.defaultPairingKey,
+            '',
           );
           await tester.tap(find.byTooltip('Show pairing key'));
           await tester.pumpAndSettle();
@@ -90,20 +90,20 @@ void main() {
           }
 
           await tester.ensureVisible(fields.at(0));
-          await tester.enterText(fields.at(0), '192.168.0.112');
+          await tester.enterText(fields.at(0), '192.168.0.113');
           await tester.enterText(fields.at(1), '5678');
           await tester.ensureVisible(find.text('Save device'));
           await tester.tap(find.text('Save device'));
           await tester.pumpAndSettle();
           expect(find.byType(SettingsScreen), findsNothing);
-          expect(await settings.loadAddress(), 'http://192.168.0.112');
-          expect(await settings.loadPairingKey('http://192.168.0.112'), '5678');
+          expect(await settings.loadAddress(), 'http://192.168.0.113');
+          expect(await settings.loadPairingKey('http://192.168.0.113'), '5678');
 
           await tester.tap(find.byTooltip('Device settings'));
           await tester.pumpAndSettle();
           expect(
             tester.widget<TextFormField>(fields.at(0)).controller!.text,
-            '192.168.0.112',
+            '192.168.0.113',
           );
           expect(
             tester.widget<TextFormField>(fields.at(1)).controller!.text,

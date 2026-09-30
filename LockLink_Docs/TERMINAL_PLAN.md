@@ -1,4 +1,4 @@
-# App terminal and connected-home contract (v1.9.3)
+# App terminal and connected-home contract (v2.0.0)
 
 ## Current behavior
 
@@ -116,7 +116,7 @@ requesting authenticated client, not retained in the shared log buffer.
 - Codes disappear on background, disconnect, reboot, timeout, closed window,
   or a changed home list. `PAIR CLOSE` closes the temporary window; merely hiding
   a code does not cancel a pairing in progress.
-- Door Release is a Matter Door Lock with a two-second release output and no
+- Door Release is a Matter Door Lock with a one-second release output and no
   door-position sensor. Google and Alexa need compatible controllers and
   development-device acceptance. Google disables voice unlock and remote unlock
   for no-PIN Matter locks. Do not promise successful pairing or voice unlocking.
@@ -166,7 +166,7 @@ QR payload handling and home management. Native firmware tests and compilation
 can check simulated output/network boundaries, but cannot prove commissioning,
 physical network recovery, assistant unlocking, relay behavior or iPhone install.
 Rendered mock previews and QR decoding also do not establish recognition by a
-second physical phone. See [v1.9.3 release notes](releases/v1.9.3.md) for the
+second physical phone. See [v2.0.0 release notes](releases/v2.0.0.md) for the
 checks actually run for this version.
 
 Install matching app and firmware versions to use the terminal and home

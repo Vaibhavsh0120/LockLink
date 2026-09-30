@@ -41,7 +41,11 @@ http.Response challenge() =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  setUp(
+    () => FlutterSecureStorage.setMockInitialValues({
+      'unlock_key:${DeviceSettings.defaultAddress}': 'a' * 64,
+    }),
+  );
 
   test(
     'a PAIR reply started before backgrounding cannot restore codes',

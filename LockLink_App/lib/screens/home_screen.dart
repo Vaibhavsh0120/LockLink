@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _haptics.enabled = hapticsEnabled;
     try {
       final address = await _settings.loadAddress();
-      final key = await _settings.loadUnlockKey(address);
+      final key = await _loadOptionalKey(address);
       if (!mounted) return;
       _connect(address);
       _unlockKey = key;
@@ -119,6 +119,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }),
     );
     await _refresh();
+  }
+
+  Future<String?> _loadOptionalKey(String address) async {
+    try {
+      return await _settings.loadUnlockKey(address);
+    } on MissingPairingKeyException {
+      return null;
+    }
   }
 
   void _connect(String? address) {
@@ -259,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Reload on every return so another page cannot leave control using an old key.
     try {
       final address = await _settings.loadAddress();
-      final savedKey = await _settings.loadUnlockKey(address);
+      final savedKey = await _loadOptionalKey(address);
       if (!mounted) return;
       setState(() {
         _connect(address);

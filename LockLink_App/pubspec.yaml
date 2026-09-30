@@ -2,7 +2,7 @@ name: locklink
 description: "Local Wi-Fi door control for LockLink."
 publish_to: 'none'
 
-version: 1.9.3+193
+version: 2.0.0+200
 
 environment:
   sdk: ^3.13.3

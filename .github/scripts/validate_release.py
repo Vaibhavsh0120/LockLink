@@ -17,7 +17,7 @@ def read_version(pubspec: Path) -> str:
         raise ValueError("pubspec.yaml must contain exactly one top-level version.")
     version = versions[0].split("#", 1)[0].strip().strip("\"'")
     if not re.fullmatch(SEMVER + r"\+[1-9][0-9]*", version):
-        raise ValueError("App version must include a semantic version and positive build number, e.g. 1.9.3+193.")
+        raise ValueError("App version must include a semantic version and positive build number, e.g. 2.0.0+200.")
     return version
 
 
@@ -39,6 +39,12 @@ def git_output(root: Path, *args: str) -> str:
 
 def validate_metadata(version: str, root: Path) -> None:
     name, build = version.split("+", 1)
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    if re.findall(r"Current source version: \*\*v([^*]+)\*\*", readme) != [name]:
+        raise ValueError("README source version must match the pubspec release version.")
+    notes = root / "LockLink_Docs/releases" / f"v{name}.md"
+    if not notes.is_file() or notes.read_text(encoding="utf-8").splitlines()[:1] != [f"# LockLink v{name}"]:
+        raise ValueError("Current release notes must exist with a matching version heading.")
     settings = (root / "LockLink_App/lib/screens/settings_screen.dart").read_text(encoding="utf-8")
     firmware = (root / "LockLink_IoT/include/config.h").read_text(encoding="utf-8")
     project = (root / "LockLink_App/ios/Runner.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
