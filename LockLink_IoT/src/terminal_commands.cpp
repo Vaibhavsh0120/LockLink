@@ -2,7 +2,10 @@
 #include "config.h"
 #include "local_network.h"
 #include "matter_release.h"
+#include "memory_diagnostics.h"
 #include <IPAddress.h>
+#include <esp_system.h>
+#include <esp_wifi.h>
 
 TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth& auth) {
   TerminalReply reply;
@@ -15,8 +18,20 @@ TerminalReply terminalCommand(String command, ReleaseOutput& output, UnlockAuth&
   else if (command == "HELP") {
     reply.output = "HELP   Commands\nSTATUS Device state\nHOMES  Connected homes\nPAIR   First home setup code\nPAIR ADD   Add another home\nPAIR CLOSE   Close LockLink pairing\nHOME REMOVE <id>   Remove one home\nHOME NAME <id> <UTF-8 hex>   Rename home\nRESET MATTER   USB only; erases homes and Wi-Fi.";
   } else if (command == "STATUS") {
+    const auto memory = memory_diagnostics::snapshot();
     const auto network = local_network::snapshot();
+    wifi_ap_record_t accessPoint = {};
+    const bool associated = esp_wifi_sta_get_ap_info(&accessPoint) == ESP_OK;
+    wifi_ps_type_t powerSave = WIFI_PS_NONE;
+    const bool powerSaveKnown = esp_wifi_get_ps(&powerSave) == ESP_OK;
     reply.output = String("LockLink v") + config::version + "\nWi-Fi: " + (network.ready() ? IPAddress(network.ipv4).toString() : "offline") +
+        "\nWi-Fi link: " + (associated ? "connected" : "disconnected") +
+        "\nSignal: " + (associated ? String(accessPoint.rssi) + " dBm" : "unavailable") +
+        "\nModem sleep: " + (!powerSaveKnown ? "unknown" : powerSave == WIFI_PS_NONE ? "off" : "on") +
+        "\nUptime: " + String(millis() / 1000) + " s; free heap: " + String(memory.free) + " bytes" +
+        "\nHeap minimum: " + String(memory.minimum) + " bytes; largest block: " + String(memory.largest) + " bytes" +
+        "\nAllocation failures: " + String(memory.allocationFailures) + "; last request: " + String(memory.lastFailedBytes) + " bytes" +
+        "\nReset reason: " + String(static_cast<int>(esp_reset_reason())) +
         "\nMatter: " + (reply.commissioned ? "paired" : "not paired") +
         "\nOutput: " + (config::relayEnabled ? "relay" : "LED") +
         "; armed: " + (!config::relayEnabled || auth.ready() ? "yes" : "no") +

@@ -6,7 +6,8 @@
 // Fixed memory, whole lines, monotonic cursor. Caller provides synchronization.
 class TerminalHistory {
  public:
-  static constexpr size_t capacity = 64;
+  // Keep the C3's fixed history below 3 KB, leaving RAM for Matter and Wi-Fi.
+  static constexpr size_t capacity = 16;
   static constexpr size_t lineSize = 160;
   struct Line { uint32_t id = 0; char text[lineSize + 1] = {}; };
   void write(char c) {
@@ -31,3 +32,4 @@ class TerminalHistory {
   size_t length_ = 0;
   uint32_t cursor_ = 0;
 };
+static_assert(sizeof(TerminalHistory) <= 3072, "Terminal history exceeds C3 RAM budget");

@@ -69,7 +69,7 @@ to show it while the device is unpaired.
    then turn off by itself.
 7. Test **“Siri, unlock Door Release”** and any authentication required on the phone.
 
-The v2.0.1 firmware appears as a Matter door lock. Its Locked/Unlocked states
+The v2.1.0 firmware appears as a Matter door lock. Its Locked/Unlocked states
 describe only the inactive/active release output; they do not verify the latch
 or door position. Apple's [current Matter guide](https://developer.apple.com/accessories/Apple-Matter-OTA-User-Guide.pdf)
 documents Add Anyway; actual pairing and Siri operation on your iPhones

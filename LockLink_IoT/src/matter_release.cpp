@@ -18,6 +18,7 @@
 #include <lib/support/utf8.h>
 #include "config.h"
 #include "device_console.h"
+#include "local_network.h"
 
 // Arduino's Matter package leaves this hook to sketches that create a Door
 // Lock endpoint directly. Initialize the cluster's server for that endpoint.
@@ -462,6 +463,12 @@ bool begin(ReleaseOutput& relay, bool isArmed) {
       additionalQr = "";
     }
   });
+  // Configure only driver allocation limits. Matter still creates interfaces,
+  // starts Wi-Fi, restores credentials and handles station reconnection.
+  if (!local_network::prepareBuffers()) {
+    console.println("Wi-Fi memory configuration failed. Restart the device.");
+    return false;
+  }
   Matter.begin();
   started = Lifecycle::ready();
   if (!started) return false;

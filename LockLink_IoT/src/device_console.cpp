@@ -1,5 +1,6 @@
 #include "device_console.h"
 #include <esp_random.h>
+#include "json_writer.h"
 
 DeviceConsole console;
 
@@ -40,15 +41,36 @@ String DeviceConsole::snapshot(uint32_t after, const String& boot) {
   const bool gap = sameBoot && (after > history_.cursor() ||
       (history_.oldest() > 1 && after < history_.oldest() - 1));
   if (!sameBoot || after > history_.cursor()) after = 0;
-  String result = String("\"version\":1,\"boot\":") + jsonQuote(boot_) +
-      ",\"cursor\":" + String(history_.cursor()) + ",\"gap\":" + (gap ? "true" : "false") + ",\"lines\":[";
-  bool first = true;
-  for (uint32_t id = history_.oldest(); id <= history_.cursor(); ++id) {
-    if (id <= after) continue;
-    if (!first) result += ',';
-    first = false;
-    result += String("{\"id\":") + String(id) + ",\"text\":" + jsonQuote(history_.at(id).text) + '}';
+  // Count and allocate once while the history is stable. Any allocation/write
+  // failure returns an empty result before a terminal command can execute.
+  const auto encode = [&](auto& writer) {
+    writer.raw("\"version\":1,\"boot\":");
+    writer.quote(boot_.c_str(), boot_.length());
+    writer.raw(",\"cursor\":"); writer.number(history_.cursor());
+    writer.raw(",\"gap\":"); writer.raw(gap ? "true" : "false");
+    writer.raw(",\"lines\":[");
+    bool first = true;
+    for (uint32_t id = history_.oldest(); id <= history_.cursor(); ++id) {
+      if (id <= after) continue;
+      if (!first) writer.raw(",");
+      first = false;
+      writer.raw("{\"id\":"); writer.number(id);
+      writer.raw(",\"text\":");
+      const auto& line = history_.at(id);
+      writer.quote(line.text, strlen(line.text));
+      writer.raw("}");
+    }
+    writer.raw("]");
+    return writer.finish();
+  };
+  size_t length = 0;
+  JsonWriter counter([&](const char*, size_t size) { length += size; return true; });
+  encode(counter);
+  String result;
+  if (result.reserve(length)) {
+    JsonWriter writer([&](const char* data, size_t size) { return bool(result.concat(data, size)); });
+    if (!encode(writer)) result = "";
   }
   xSemaphoreGive(mutex_);
-  return result + ']';
+  return result;
 }

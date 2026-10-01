@@ -2,17 +2,12 @@ name: Manual mobile release
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Release tag matching pubspec.yaml, for example v2.0.1'
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: mobile-release-${{ inputs.tag }}
+  group: mobile-release
   cancel-in-progress: false
 
 jobs:
@@ -23,12 +18,18 @@ jobs:
     needs: workflows
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-      - name: Validate release version and tag commit
+      - name: Read source version and reject an existing release
+        id: release
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/validate_release.py
+      - name: Test version synchronization and release checks
+        run: python3 -B .github/scripts/test_sync_version.py
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.4'
@@ -138,7 +139,7 @@ jobs:
           if-no-files-found: ignore
 
   publish:
-    needs: [android, ios, firmware]
+    needs: [verify, android, ios, firmware]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -146,7 +147,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_TAG: ${{ needs.verify.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -159,7 +160,7 @@ jobs:
           path: release
       - name: Recheck version and remote tag before publication
         run: python3 .github/scripts/validate_release.py
-      - name: Create or update GitHub release
+      - name: Create new GitHub release
         run: |
           set -euo pipefail
           notes="LockLink_Docs/releases/$RELEASE_TAG.md"
@@ -167,9 +168,4 @@ jobs:
           if [[ "$RELEASE_TAG" == *-* ]]; then
             prerelease=true
           fi
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --clobber
-            gh release edit "$RELEASE_TAG" --notes-file "$notes" --prerelease="$prerelease"
-          else
-            gh release create "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --target "$GITHUB_SHA" --title "LockLink $RELEASE_TAG" --notes-file "$notes" --prerelease="$prerelease"
-          fi
+          gh release create "$RELEASE_TAG" release/LockLink-Android.apk release/LockLink-iOS-unsigned.ipa --target "$GITHUB_SHA" --title "LockLink $RELEASE_TAG" --notes-file "$notes" --prerelease="$prerelease"

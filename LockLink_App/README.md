@@ -1,6 +1,6 @@
 # LockLink app
 
-The v2.0.1 Flutter client for the local ESP32-C3 LockLink controller runs on Android,
+The v2.1.0 Flutter client for the local ESP32-C3 LockLink controller runs on Android,
 iOS, and the web. Choose light, dark, or system appearance in Settings.
 
 1. Run `flutter pub get` and `flutter run`.

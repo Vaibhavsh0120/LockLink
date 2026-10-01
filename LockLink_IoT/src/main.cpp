@@ -6,6 +6,7 @@
 #include "unlock_auth.h"
 #include "device_console.h"
 #include "terminal_commands.h"
+#include "memory_diagnostics.h"
 
 ReleaseOutput output;
 UnlockAuth auth;
@@ -13,9 +14,11 @@ LocalApi localApi(output, auth);
 bool ready = false;
 
 void setup() {
+  const bool heapTracking = memory_diagnostics::begin();
   const bool outputReady = output.begin();
   Serial.begin(115200);
   console.begin();
+  if (!heapTracking) console.println("Memory allocation tracking unavailable.");
   if (!outputReady) {
     console.println("Output failed. Release disabled.");
     return;

@@ -4,7 +4,7 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include <sdkconfig.h>
 #if !defined(CONFIG_IDF_TARGET_ESP32C3)
-#error "LockLink v2.0.1 requires the ESP32-C3 Super Mini target"
+#error "LockLink v2.1.0 requires the ESP32-C3 Super Mini target"
 #endif
 #endif
 
@@ -36,7 +36,8 @@
 #endif
 
 namespace config {
-constexpr char version[] = "2.0.1";
+// Synchronized from LockLink_App/pubspec.yaml; use sync_version.py to change it.
+constexpr char version[] = "2.1.0";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");

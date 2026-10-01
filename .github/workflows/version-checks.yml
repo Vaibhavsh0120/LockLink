@@ -1,0 +1,55 @@
+name: Version metadata checks
+
+on:
+  push:
+    paths:
+      - 'LockLink_App/pubspec.yaml'
+      - 'LockLink_App/lib/screens/settings_screen.dart'
+      - 'LockLink_App/ios/Runner.xcodeproj/project.pbxproj'
+      - 'LockLink_IoT/include/config.h'
+      - 'README.md'
+      - 'LockLink_App/README.md'
+      - 'LockLink_Docs/ESP32_C3_SETUP.md'
+      - 'LockLink_Docs/MATTER_SETUP.md'
+      - 'LockLink_Docs/APPLE_HOME_QUICKSTART.md'
+      - 'LockLink_Docs/WIDGETS.md'
+      - 'LockLink_Docs/TERMINAL_PLAN.md'
+      - 'LockLink_Docs/OFFLINE_BEHAVIOR.md'
+      - 'LockLink_Docs/releases/**'
+      - '.github/scripts/**'
+      - '.github/workflows/version-checks.yml'
+  pull_request:
+    paths:
+      - 'LockLink_App/pubspec.yaml'
+      - 'LockLink_App/lib/screens/settings_screen.dart'
+      - 'LockLink_App/ios/Runner.xcodeproj/project.pbxproj'
+      - 'LockLink_IoT/include/config.h'
+      - 'README.md'
+      - 'LockLink_App/README.md'
+      - 'LockLink_Docs/ESP32_C3_SETUP.md'
+      - 'LockLink_Docs/MATTER_SETUP.md'
+      - 'LockLink_Docs/APPLE_HOME_QUICKSTART.md'
+      - 'LockLink_Docs/WIDGETS.md'
+      - 'LockLink_Docs/TERMINAL_PLAN.md'
+      - 'LockLink_Docs/OFFLINE_BEHAVIOR.md'
+      - 'LockLink_Docs/releases/**'
+      - '.github/scripts/**'
+      - '.github/workflows/version-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Check synchronized version metadata
+        run: python .github/scripts/sync_version.py --check
+      - name: Test version synchronization and release checks
+        run: python -B .github/scripts/test_sync_version.py

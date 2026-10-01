@@ -1,6 +1,6 @@
 # Apple Home, Google Home, and Alexa
 
-The v2.0.1 `LockLink_IoT` firmware exposes **Door Release** as a Matter
+The v2.1.0 `LockLink_IoT` firmware exposes **Door Release** as a Matter
 **Door Lock** accessory alongside the LockLink app HTTP API. **Unlock** starts
 a one-second release; the output then turns off and reports **Locked**.
 **Lock** ends an active release early. Repeated Unlock commands during a

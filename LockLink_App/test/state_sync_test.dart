@@ -99,6 +99,79 @@ void main() {
   bool active(WidgetTester tester) =>
       tester.widget<DoorControlCard>(find.byType(DoorControlCard)).active;
 
+  testWidgets('a brief connection loss recovers after one second', (
+    tester,
+  ) async {
+    var reads = 0;
+    await runApp(
+      tester,
+      (_) async {
+        if (++reads == 2) throw TimeoutException('temporary Wi-Fi delay');
+        return status(false);
+      },
+      () async {
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump();
+        expect(reads, 2);
+        expect(find.text('Reconnecting…'), findsOneWidget);
+        expect(find.text('Offline'), findsNothing);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        expect(reads, 3);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNotNull,
+        );
+      },
+    );
+  });
+
+  testWidgets('startup retries are bounded and a pending check is visible', (
+    tester,
+  ) async {
+    var reads = 0;
+    final pending = Completer<http.Response>();
+    await runApp(
+      tester,
+      (_) async {
+        reads++;
+        if (reads == 2) return pending.future;
+        throw http.ClientException('unreachable');
+      },
+      () async {
+        expect(find.text('Connecting…'), findsOneWidget);
+        expect(find.text('Offline'), findsNothing);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        expect(reads, 2);
+        final check = find.byWidgetPredicate(
+          (widget) =>
+              widget is IconButton && widget.tooltip == 'Check connection',
+        );
+        expect(tester.widget<IconButton>(check).onPressed, isNull);
+        pending.completeError(TimeoutException('reply lost'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pump();
+        expect(reads, 3);
+        expect(find.text('Offline'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 4));
+        expect(reads, 3);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        expect(reads, 4);
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+      },
+    );
+  });
+
   testWidgets('offline recovers without replaying an unconfirmed unlock', (
     tester,
   ) async {
@@ -116,6 +189,11 @@ void main() {
         return status(false);
       },
       () async {
+        expect(find.text('Connecting…'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pump();
         expect(find.text('Offline'), findsOneWidget);
         expect(
           tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
@@ -134,9 +212,9 @@ void main() {
           find.text('No confirmation. Check the device before retrying.'),
           findsOneWidget,
         );
-        expect(find.text('Offline'), findsOneWidget);
+        expect(find.text('Reconnecting…'), findsOneWidget);
         reachable = true;
-        await tester.pump(const Duration(seconds: 5));
+        await tester.pump(const Duration(seconds: 1));
         await tester.pumpAndSettle();
         expect(commands, 1);
         expect(

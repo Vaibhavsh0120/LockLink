@@ -38,6 +38,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _statusGeneration = 0;
   bool _online = false;
   bool _hasChecked = false;
+  bool _hasConnected = false;
+  int _connectionFailures = 0;
+  String? _connectionIssue;
   bool _unlocking = false;
   bool _relayMode = false;
   bool _armed = true;
@@ -64,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() {
       _online = false;
       _hasChecked = _settingsError;
+      _connectionFailures = 0;
+      _connectionIssue = null;
     });
     if (_foreground && !_loading) unawaited(_refresh());
   }
@@ -82,6 +87,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ? Duration.zero
           : _online
           ? const Duration(milliseconds: 500)
+          : _connectionFailures <= 1
+          ? const Duration(seconds: 1)
+          : _connectionFailures == 2
+          ? const Duration(seconds: 2)
           : const Duration(seconds: 5),
       () => unawaited(_refresh()),
     );
@@ -140,6 +149,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _unlocking = false;
     _online = false;
     _hasChecked = false;
+    _hasConnected = false;
+    _connectionFailures = 0;
+    _connectionIssue = null;
     _relayMode = false;
     _armed = true;
     _pairingError = false;
@@ -155,9 +167,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_checking) return;
     _pollTimer?.cancel();
     final generation = _statusGeneration;
-    _checking = true;
+    setState(() {
+      _checking = true;
+      _userChecking = userInitiated;
+    });
     if (userInitiated) {
-      setState(() => _userChecking = true);
       _haptics.tap();
     }
     try {
@@ -166,6 +180,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _hasChecked = true;
         _online = status.online;
+        _hasConnected = _hasConnected || status.online;
+        _connectionFailures = status.online ? 0 : 3;
+        _connectionIssue = null;
         _deviceState = status.state;
         _relayMode = status.mode == 'relay';
         _armed = status.armed;
@@ -185,18 +202,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         api.discardPreparedUnlock();
       }
       if (userInitiated && !status.online) _haptics.error();
-    } catch (_) {
+    } catch (error) {
       if (!mounted || api != _api || generation != _statusGeneration) return;
       api.discardPreparedUnlock();
       setState(() {
         _online = false;
         _hasChecked = true;
+        // Brief transport failures get two quick read-only recovery checks.
+        // Invalid responses need address/firmware attention, not rapid retries.
+        _connectionFailures =
+            error is FormatException || error is DeviceException
+            ? 3
+            : _connectionFailures + 1;
+        _connectionIssue = error is FormatException || error is DeviceException
+            ? 'Unexpected device response. Check the address and firmware.'
+            : error is TimeoutException
+            ? 'The ESP32 did not respond. Check power and Wi-Fi.'
+            : 'Could not reach the ESP32. Check power and Wi-Fi.';
       });
       if (userInitiated) _haptics.error();
     } finally {
       if (mounted && api == _api) {
-        _checking = false;
-        if (_userChecking) setState(() => _userChecking = false);
+        setState(() {
+          _checking = false;
+          _userChecking = false;
+        });
         _scheduleRefresh(immediate: generation != _statusGeneration);
       }
     }
@@ -318,8 +348,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final active = _online && (_unlocking || _deviceState == 'unlocking');
     final ready =
         !_relayMode || (_armed && _unlockKey != null && !_pairingError);
+    final recovering =
+        !_online && _connectionFailures > 0 && _connectionFailures < 3;
+    final connectionLabel = _hasConnected ? 'Reconnecting…' : 'Connecting…';
     final stateLabel = _address == null
         ? 'Not connected'
+        : recovering
+        ? connectionLabel
         : !_online
         ? 'Offline'
         : _relayMode && !_armed
@@ -333,6 +368,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : 'Locked';
     final statusText = _address == null
         ? 'Not connected'
+        : recovering
+        ? connectionLabel
         : !_online
         ? 'Offline'
         : !ready
@@ -342,8 +379,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ? 'Could not load device settings. Open Settings to try again.'
         : _address == null
         ? 'Add device address'
+        : recovering
+        ? 'Retrying automatically…'
         : !_online
-        ? 'Power on the ESP32 and use the same Wi-Fi.'
+        ? _connectionIssue ??
+              'Could not reach the ESP32. Check power and Wi-Fi.'
         : _relayMode && !_armed
         ? 'Set a pairing key on your device.'
         : _pairingError
@@ -412,14 +452,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             children: [
                               DoorControlCard(
                                 connectionError:
-                                    !_loading && _hasChecked && !_online,
+                                    !_loading &&
+                                    _hasChecked &&
+                                    !_online &&
+                                    !recovering,
                                 online: _online,
                                 ready: ready,
                                 active: active,
                                 stateLabel: _loading
                                     ? 'Connecting…'
                                     : !_hasChecked && _address != null
-                                    ? 'Checking connection…'
+                                    ? connectionLabel
                                     : stateLabel,
                                 statusText: _loading || !_hasChecked
                                     ? 'Connecting'
@@ -472,10 +515,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     ),
                                     trailing: IconButton(
                                       tooltip: 'Check connection',
-                                      onPressed: _userChecking || _unlocking
+                                      onPressed: _checking || _unlocking
                                           ? null
                                           : () => _refresh(userInitiated: true),
-                                      icon: _userChecking
+                                      icon:
+                                          _checking &&
+                                              (!_online || _userChecking)
                                           ? const SizedBox.square(
                                               dimension: 20,
                                               child: CircularProgressIndicator(
@@ -490,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               if (!_loading &&
                                   _hasChecked &&
                                   !_online &&
+                                  !recovering &&
                                   !_settingsError) ...[
                                 const SizedBox(height: 12),
                                 const DeviceConnectionHelp(),

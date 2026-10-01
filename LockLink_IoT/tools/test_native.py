@@ -9,6 +9,7 @@ with tempfile.TemporaryDirectory(prefix="locklink-tests-") as temporary:
     for name, sources in {
         "challenge_pool": ["test/native/challenge_pool_test.cpp"],
         "terminal_history": ["test/native/terminal_history_test.cpp"],
+        "json_writer": ["test/native/json_writer_test.cpp"],
         "lock_state": ["test/native/lock_state_test.cpp"],
         "local_network": ["test/native/local_network_test.cpp", "src/local_network.cpp"],
         "release_output": ["test/native/release_output_test.cpp", "src/release_output.cpp"],
