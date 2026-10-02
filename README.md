@@ -12,7 +12,6 @@
 <p align="center">
   <a href="LockLink_App"><img src="LockLink_Docs/assets/readme/flutter.svg" alt="Built with Flutter"></a>
   <a href="LockLink_Docs/ESP32_C3_SETUP.md"><img src="LockLink_Docs/assets/readme/esp32-c3.svg" alt="ESP32-C3 Super Mini hardware"></a>
-  <a href="LockLink_Docs/MATTER_SETUP.md"><img src="LockLink_Docs/assets/readme/matter.svg" alt="Matter over Wi-Fi firmware"></a>
 </p>
 
 <p align="center">
@@ -21,7 +20,11 @@
   <a href="#mobile-releases">Build apps</a>
 </p>
 
-Current source version: **v2.1.0**.
+Current source version: **v2.2.0**.
+
+Intermittent Wi-Fi packet loss is still reproduced on the test board. This
+release improves memory and request handling but is not yet validated for
+permanent door installation. See the [current investigation](LockLink_Docs/RELIABILITY_2026-10-02.md).
 
 ## What LockLink does
 
@@ -29,16 +32,15 @@ Current source version: **v2.1.0**.
 | --- | --- |
 | Local control | The app requests a one-second release from the ESP32 on the same network. |
 | Connection recovery | Home refreshes on return and retries failed status reads automatically. |
-| Terminal | Authenticated diagnostics with the latest 16 device log lines. |
+| Diagnostics | Bounded health data; USB-only checks, no retained network log buffer. |
 | Gate widgets | Native controls for Android and iPhone; iPhone widgets require a signed installation. |
-| Matter | App and paired home controllers use the same release output. Controller requirements are below. |
+| App-only firmware | More RAM for local control, bounded requests, and Wi-Fi recovery. |
 
 ## How it connects
 
 ```mermaid
 flowchart TD
-    app["LockLink app<br/>Phone / browser"] -->|Local HTTP| device["ESP32-C3<br/>Local HTTP + Matter"]
-    home["Home controller<br/>Matter pairing"] -->|Matter / Wi-Fi| device
+    app["LockLink app<br/>Phone / browser / widget"] -->|Local HTTP| device["ESP32-C3<br/>App-only firmware"]
     device --> pulse["One-second release"]
     pulse --> relay["GPIO4 · Relay"]
     pulse --> led["GPIO8 · LED test"]
@@ -55,7 +57,7 @@ sensor, so it cannot confirm that the physical door opened.
 1. Use the **ESP32-C3 Super Mini** and follow the
    [installation guide](LockLink_Docs/ESP32_C3_SETUP.md). Start with the relay
    disconnected and LED test mode.
-2. Join Wi-Fi through Matter pairing or private firmware configuration. Run
+2. Configure Wi-Fi in the private firmware configuration. Run
    USB `STATUS` to find the device address.
 3. Run the Flutter app, save that address in Settings, and use a matching private
    app key for relay control. Read [relay setup](LockLink_Docs/RELAY_SETUP.md)
@@ -69,17 +71,13 @@ sensor, so it cannot confirm that the physical door opened.
 2. Copy `LockLink_IoT/include/private_config.example.h` to
    `LockLink_IoT/include/private_config.h` only if it does not exist. Preserve
    existing private values. Set `LOCKLINK_RELAY_ENABLED 0` for this LED test.
-   Wi-Fi credentials can be supplied over Bluetooth during Matter pairing,
-   or set `LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` in the private
-   config to connect before Home pairing. Saved networks take priority.
+   Set `LOCKLINK_WIFI_SSID` and `LOCKLINK_WIFI_PASSWORD` in the private
+   config for first installation. Saved networks take priority on updates.
 3. In `LockLink_IoT`, run `pio run -e esp32-c3-supermini -t upload`, then
    `pio device monitor -b 115200`. This environment pins pioarduino
-   `55.03.312-1` / Arduino-ESP32 `3.3.12` and the Matter partition layout.
-4. Follow the [Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md)
-   to pair, then **Unlock Door Release**. The LED should turn off after one
-   second. USB `STATUS` reports current connectivity; `PAIR` shows setup
-   information. Keep the pairing code private.
-5. Use the IPv4 address reported after commissioning for
+   `55.03.312-1` / Arduino-ESP32 `3.3.12` and the existing C3 partition layout.
+4. USB `STATUS` reports connectivity and health without printing credentials.
+5. Use the reported IPv4 address for
    `curl http://DEVICE_IP/status`. In LED mode only,
    `curl -X POST http://DEVICE_IP/unlock` tests the same pulse.
 6. In `LockLink_App`, run `flutter run`, enter the reported device address in
@@ -98,8 +96,8 @@ default appearance mode and follows the phone's theme.
 The active home screen checks the ESP32's shared release state 500 ms after
 each completed status read, with a four-second request timeout. After a failed
 read, retries wait one second, then two seconds, then five seconds. Polling pauses in the background and in device settings;
-returning refreshes the state immediately. Matter and the app control the same
-output. Network delays and each platform's refresh behavior still apply.
+returning refreshes the state immediately. Four foreground phones can share the
+same device/key; closed/background apps do not continuously poll it.
 It disables Unlock while the device is offline or a pulse is active.
 After returning to the app, control waits for a fresh status response. See
 [offline behavior and recovery](LockLink_Docs/OFFLINE_BEHAVIOR.md) for power loss,
@@ -129,10 +127,11 @@ and publication rejects draft notes.
 
 ## Mobile releases
 
-Version **2.1.0** improves automatic connection recovery and ESP32-C3 memory
-usage while retaining Terminal, connected-home management and native widgets.
+Version **2.2.0** removes Matter/Bluetooth and app Terminal to prioritize local
+opening, memory headroom, bounded HTTP handling, and Wi-Fi recovery. Native
+Android/iPhone widgets are retained. This is app-only firmware, not a runtime toggle.
 Both the center circular control and the Unlock button request the same release.
-See [v2.1.0 release notes](LockLink_Docs/releases/v2.1.0.md)
+See [v2.2.0 release notes](LockLink_Docs/releases/v2.2.0.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 
@@ -180,36 +179,6 @@ and the original [v1.4.0 widget release notes](LockLink_Docs/releases/v1.4.0.md)
 a direct installation with the extension signed; LiveContainer guest installs
 cannot expose the widget to iOS.
 
-## Smart home
-
-Pairing uses the firmware's Matter **Door Release** accessory. See the
-[Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md) or the full
-[Matter setup guide](LockLink_Docs/MATTER_SETUP.md).
-
-<details>
-<summary>Apple Home, Siri, Google Home and Alexa requirements</summary>
-
-The firmware exposes **Door Release** as a Matter door lock. **Unlock** requests
-a one-second release; **Lock** ends it early. Repeated Unlock commands do not
-extend the pulse. Reported Locked/Unlocked states describe the release output,
-not the physical door position. Anyone authorized by a paired controller to
-unlock the accessory can release the door; Wi-Fi membership alone does not
-identify the owner.
-
-Apple documents [local Wi-Fi Matter control without a home hub on iOS 18+](https://support.apple.com/en-us/102135).
-Google Home and Alexa require compatible Matter controllers. [Google disables
-Matter door-lock voice unlock and remote unlock for locks without mandatory
-PINs](https://developers.home.google.com/matter/supported-devices#door-locks).
-Siri/Alexa permissions, authentication and development-device acceptance
-need testing on the actual controller. No integration subscription is built
-into this project. The existing Android/iPhone app keeps
-its authenticated local control. Start with the [Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md).
-Follow [Matter setup](LockLink_Docs/MATTER_SETUP.md)
-for configuration, development-accessory pairing, build instructions, and
-physical verification requirements. Actual ecosystem pairing remains unverified.
-
-</details>
-
 ## Hardware and diagnostics
 
 The current firmware targets the ESP32-C3 Super Mini with 4 MB flash and no
@@ -222,7 +191,7 @@ PSRAM. Relay wiring and authentication details are in the
 LockLink is a local network door controller for ESP32-C3 Super Mini (4 MB flash,
 no PSRAM). GPIO4 is **HIGH at idle and LOW for one second**; GPIO8 drives
 the onboard active-LOW blue LED. Relay mode is the default, and requires a valid
-private app key before any app or Matter command can start a release pulse.
+private app key before any app command can start a release pulse.
 Signal polarity does not identify physical coil state: a HIGH-ON relay stays
 energized at idle with this inverted configuration. Check the wiring guide.
 
@@ -247,14 +216,14 @@ no door-position sensor.
 <details>
 <summary>USB diagnostics and firmware updates</summary>
 
-Type `STATUS` and Enter to check firmware version, Matter commissioning, the
+Type `STATUS` and Enter to check firmware version, memory/temperature/Wi-Fi health, the
 local IP, and release output. Test `GET /status` for app connectivity.
 A single `ESP_ERR_WIFI_CONN` / “sta is connecting”
 message during startup means a connection attempt was already in progress;
 it does not establish an ongoing failure. Check the later state before
-changing configuration. See [recovery guidance](LockLink_Docs/MATTER_SETUP.md#pairing-information-reset-and-recovery)
-for persistent connection problems. `RESET MATTER` deliberately clears Matter
-pairing/network settings; ordinary firmware updates should not erase them.
+changing configuration. See [recovery guidance](LockLink_Docs/OFFLINE_BEHAVIOR.md)
+for persistent connection problems. USB `WIFI RECONNECT` cycles the board's
+connection without erasing settings; ordinary firmware updates preserve them.
 Use the normal PlatformIO upload for updates. The combined factory image
 wipes NVS and is for initial installation or deliberate recovery.
 
@@ -270,8 +239,8 @@ web requests are subject to CORS and local network permissions.
 static files, but it cannot directly reach a private ESP32 on your Wi-Fi. A
 public HTTPS page calling a private HTTP address also faces browser mixed-content
 and local-network permission restrictions. Relay mode accepts signed local
-commands and disables browser access unless one exact local origin is
-configured, but it is not a remote-access service. Remote unlock needs a
+commands and disables browser access unless the exact local origin is
+explicitly allowlisted in private configuration, but it is not a remote-access service. Remote unlock needs a
 separate design and security review.
 
 ## Guides
@@ -280,17 +249,15 @@ separate design and security review.
 | --- | --- |
 | [ESP32-C3 setup](LockLink_Docs/ESP32_C3_SETUP.md) | Install firmware or migrate to the C3 board. |
 | [Relay setup](LockLink_Docs/RELAY_SETUP.md) | Connect and configure the relay and lock. |
-| [Apple Home quickstart](LockLink_Docs/APPLE_HOME_QUICKSTART.md) | Set up the accessory in Apple Home. |
-| [Matter setup](LockLink_Docs/MATTER_SETUP.md) | Understand commissioning, sharing and controller requirements. |
 | [Widget setup](LockLink_Docs/WIDGETS.md) | Add native Android or iPhone controls. |
 | [Offline recovery](LockLink_Docs/OFFLINE_BEHAVIOR.md) | Diagnose connection, power or network changes. |
-| [Terminal reference](LockLink_Docs/TERMINAL_PLAN.md) | Use authenticated diagnostics and smart-home setup. |
-| [Connection diagnosis](LockLink_Docs/CONNECTION_DIAGNOSIS_2026-10-01.md) | Read the measured C3 memory and recovery results. |
+| [USB health reference](LockLink_Docs/USB_DIAGNOSTICS.md) | Read diagnostics without an app Terminal. |
+| [Current investigation](LockLink_Docs/RELIABILITY_2026-10-02.md) | Read measured results and the remaining packet-loss problem. |
 
 ## Repository
 
 | Folder | Contents |
 | --- | --- |
 | [`LockLink_App/`](LockLink_App/) | Flutter client for Android, iOS and web. |
-| [`LockLink_IoT/`](LockLink_IoT/) | ESP32-C3 Matter firmware and local HTTP API. |
+| [`LockLink_IoT/`](LockLink_IoT/) | ESP32-C3 app-only firmware and local HTTP API. |
 | [`LockLink_Docs/`](LockLink_Docs/) | Wiring, setup, diagnostics and release notes. |

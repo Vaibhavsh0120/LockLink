@@ -15,7 +15,7 @@ class LockState {
   }
   void lock() { active_ = false; }
   bool expire(uint32_t now) {
-    if (!active_ || uint32_t(now - started_) < matter_config::pulseMs) return false;
+    if (!active_ || uint32_t(now - started_) < config::pulseMs) return false;
     active_ = false;
     return true;
   }

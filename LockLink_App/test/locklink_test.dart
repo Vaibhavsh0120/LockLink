@@ -7,7 +7,6 @@ import 'package:http/testing.dart';
 import 'package:locklink/services/device_settings.dart';
 import 'package:locklink/services/device_request.dart';
 import 'package:locklink/services/locklink_api_service.dart';
-import 'package:locklink/services/terminal_service.dart';
 
 class PendingDeviceClient extends http.BaseClient {
   var requests = 0;
@@ -177,7 +176,6 @@ void main() {
       'http://192.168.1.50?x=1',
     ]) {
       expect(() => LockLinkApiService(address), throwsFormatException);
-      expect(() => TerminalService(address, 'a' * 64), throwsFormatException);
     }
     final client = RedirectProbeClient();
     for (final method in ['GET', 'POST']) {

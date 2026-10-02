@@ -12,10 +12,10 @@ class LocalApi {
  private:
   void headers();
   void json(int status, const String& body);
-  void terminalRequest();
   WebServer server_{80};
   ReleaseOutput& output_;
   UnlockAuth& auth_;
-  UnlockAuth terminalAuth_;
   bool listening_ = false;
+  uint32_t networkEpoch_ = 0;
+  uint32_t address_ = 0;
 };

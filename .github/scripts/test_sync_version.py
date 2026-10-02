@@ -22,8 +22,7 @@ class VersionSyncTests(unittest.TestCase):
             "LockLink_App/pubspec.yaml", "LockLink_App/lib/screens/settings_screen.dart",
             "LockLink_App/ios/Runner.xcodeproj/project.pbxproj", "LockLink_IoT/include/config.h",
             "README.md", "LockLink_App/README.md", "LockLink_Docs/ESP32_C3_SETUP.md",
-            "LockLink_Docs/MATTER_SETUP.md", "LockLink_Docs/APPLE_HOME_QUICKSTART.md",
-            "LockLink_Docs/WIDGETS.md", "LockLink_Docs/TERMINAL_PLAN.md",
+            "LockLink_Docs/WIDGETS.md", "LockLink_Docs/USB_DIAGNOSTICS.md",
             "LockLink_Docs/OFFLINE_BEHAVIOR.md", "LockLink_Docs/CONNECTION_DIAGNOSIS_2026-10-01.md",
             f"LockLink_Docs/releases/v{self.current.split('+')[0]}.md",
         ]

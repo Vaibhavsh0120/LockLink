@@ -51,6 +51,9 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('Device settings'));
           await tester.pumpAndSettle();
+          expect(find.text('Terminal'), findsNothing);
+          expect(find.text('Smart home setup'), findsNothing);
+          expect(find.text('Device tools'), findsNothing);
 
           final fields = find.byType(TextFormField);
           expect(

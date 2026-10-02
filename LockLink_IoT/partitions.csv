@@ -1,5 +1,5 @@
 # Name, Type, SubType, Offset, Size, Flags
-# C3 4 MB flash: larger persistent Matter storage, one app slot, USB updates.
+# C3 4 MB flash: preserve the existing NVS layout, one app slot, USB updates.
 otadata, data, ota, 0xe000, 0x2000,
 nvs, data, nvs, 0x10000, 0x10000,
 app0, app, ota_0, 0x20000, 0x3d0000,

@@ -1,13 +1,14 @@
 #pragma once
 
-// OPTIONAL: copy this file to private_config.h and enter your 2.4 GHz Wi-Fi.
-// Used at startup ONLY if the board has no saved Wi-Fi and no Matter pairing.
-// Saved credentials win; these fields never overwrite a Home-configured network.
-// Leave both empty to let Apple/Google/Alexa supply Wi-Fi during BLE pairing.
-// Matter manages reconnects in both cases. No Home hub/phone must remain nearby
-// for the ESP32 to stay on Wi-Fi. Do not publish private_config.h or private builds.
+// Copy to private_config.h only if it does not exist. Enter 2.4 GHz Wi-Fi for
+// first installation. Saved credentials take priority on routine updates.
+// The firmware owns reconnects; no nearby phone is required to maintain Wi-Fi.
+// There is no Bluetooth provisioning. Never publish this file or private builds.
 #define LOCKLINK_WIFI_SSID ""
 #define LOCKLINK_WIFI_PASSWORD ""
+// Preserve calibrated default power. An optional override uses quarter-dBm
+// units (e.g. 34 for 8.5 dBm), and requires a fresh installed-location soak.
+#define LOCKLINK_WIFI_TX_POWER 0
 
 // ESP32-C3 Super Mini: GPIO4 is HIGH at idle, LOW for the one-second pulse.
 // This is the GPIO signal polarity; verify the module's coil/contact behavior.
@@ -17,8 +18,11 @@
 #define LOCKLINK_RELAY_GPIO 4
 #define LOCKLINK_INDICATOR_GPIO 8 // Blue LED, active LOW (not an RGB LED).
 
-// App authentication is separate from Matter pairing and any voice PIN.
+// App authentication uses a private HMAC-SHA256 key.
 // Generate a strong hex key: python -c "import secrets; print(secrets.token_hex(32))"
 // Enter the same hex key in the LockLink app's device settings.
 #define LOCKLINK_UNLOCK_KEY_HEX ""
 #define LOCKLINK_ALLOWED_WEB_ORIGIN ""
+// For a local browser preview, explicitly allow its exact origins instead:
+// #define LOCKLINK_ALLOWED_WEB_ORIGINS "http://localhost:8765", "http://127.0.0.1:8765"
+// Remove testing origins before permanent installation. Native apps need no CORS.

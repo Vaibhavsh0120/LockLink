@@ -4,11 +4,11 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include <sdkconfig.h>
 #if !defined(CONFIG_IDF_TARGET_ESP32C3)
-#error "LockLink v2.1.0 requires the ESP32-C3 Super Mini target"
+#error "LockLink v2.2.0 requires the ESP32-C3 Super Mini target"
 #endif
 #endif
 
-// One configuration for app control and all Matter ecosystems.
+// Keep local Wi-Fi and app authentication out of public builds.
 #if !defined(LOCKLINK_IGNORE_PRIVATE_CONFIG) && __has_include("private_config.h")
 #include "private_config.h"
 #endif
@@ -34,17 +34,27 @@
 #ifndef LOCKLINK_ALLOWED_WEB_ORIGIN
 #define LOCKLINK_ALLOWED_WEB_ORIGIN ""
 #endif
+#ifndef LOCKLINK_ALLOWED_WEB_ORIGINS
+#define LOCKLINK_ALLOWED_WEB_ORIGINS LOCKLINK_ALLOWED_WEB_ORIGIN
+#endif
+#ifndef LOCKLINK_WIFI_TX_POWER
+#define LOCKLINK_WIFI_TX_POWER 0
+#endif
 
 namespace config {
 // Synchronized from LockLink_App/pubspec.yaml; use sync_version.py to change it.
-constexpr char version[] = "2.1.0";
+constexpr char version[] = "2.2.0";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");
 static_assert(sizeof(wifiPassword) <= 65, "Wi-Fi password must be at most 64 bytes");
 constexpr bool relayEnabled = LOCKLINK_RELAY_ENABLED == 1;
 constexpr const char* unlockKeyHex = LOCKLINK_UNLOCK_KEY_HEX;
-constexpr const char* allowedWebOrigin = LOCKLINK_ALLOWED_WEB_ORIGIN;
+constexpr const char* allowedWebOrigins[] = {LOCKLINK_ALLOWED_WEB_ORIGINS};
+// Zero preserves the calibrated SDK default; overrides use quarter-dBm units.
+constexpr int8_t wifiTxPower = LOCKLINK_WIFI_TX_POWER;
+static_assert(LOCKLINK_WIFI_TX_POWER == 0 || (LOCKLINK_WIFI_TX_POWER >= 8 && LOCKLINK_WIFI_TX_POWER <= 84),
+    "Wi-Fi TX maximum must be 0 (SDK default) or 8..84 in quarter-dBm units");
 constexpr uint8_t indicatorPin = LOCKLINK_INDICATOR_GPIO;
 constexpr uint8_t outputPin = LOCKLINK_RELAY_GPIO;
 // Inverted GPIO4 signal: HIGH at idle, LOW during the one-second release.
@@ -56,10 +66,6 @@ static_assert(!relayEnabled || (outputPin <= 10 && outputPin != 2 &&
     "Choose a C3 Super Mini relay GPIO (default 4), excluding boot straps/LED");
 static_assert(indicatorPin <= 10 && indicatorPin != 2 && indicatorPin != 9,
     "Choose a C3 Super Mini indicator GPIO (blue LED is 8)");
-}
-
-namespace matter_config {
-constexpr const char* deviceName = "Door Release";
 constexpr uint32_t pulseMs = 1000;
 constexpr uint32_t pulseUs = pulseMs * 1000;
 }

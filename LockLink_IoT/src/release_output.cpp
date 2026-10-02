@@ -7,7 +7,7 @@ uint32_t nowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 }
 
 bool ReleaseOutput::begin() {
-  // Inactive output is established before any network or commissioning work.
+  // Inactive output is established before any network work.
   if (config::relayEnabled) {
     // Arduino 3 digitalWrite ignores pins until pinMode registers the GPIO.
     // Set the hardware latch directly before enabling the output driver.
@@ -53,7 +53,7 @@ ReleaseOutput::Result ReleaseOutput::release() {
   }
   // Arm the cutoff before asserting the release signal. No network work under
   // this mutex, so the esp_timer task can promptly restore the idle signal.
-  if (esp_timer_start_once(timer_, matter_config::pulseUs) != ESP_OK) {
+  if (esp_timer_start_once(timer_, config::pulseUs) != ESP_OK) {
     state_.lock();
     setRelay(false);
     xSemaphoreGive(mutex_);

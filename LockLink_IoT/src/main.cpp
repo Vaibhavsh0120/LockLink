@@ -1,12 +1,14 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 #include "local_api.h"
-#include "matter_release.h"
+#include "app_network.h"
 #include "release_output.h"
 #include "unlock_auth.h"
 #include "device_console.h"
-#include "terminal_commands.h"
+#include "usb_diagnostics.h"
 #include "memory_diagnostics.h"
+#include "runtime_diagnostics.h"
 
 ReleaseOutput output;
 UnlockAuth auth;
@@ -17,72 +19,47 @@ void setup() {
   const bool heapTracking = memory_diagnostics::begin();
   const bool outputReady = output.begin();
   Serial.begin(115200);
-  console.begin();
+  if (!runtime_diagnostics::begin()) console.println("Chip temperature unavailable.");
   if (!heapTracking) console.println("Memory allocation tracking unavailable.");
-  if (!outputReady) {
-    console.println("Output failed. Release disabled.");
-    return;
-  }
+  if (!outputReady) { console.println("Output failed. Release disabled."); return; }
   auth.begin();
-  const bool armed = !config::relayEnabled || auth.ready();
-  if (!armed) console.println("Relay not armed. Configure app key.");
+  if (config::relayEnabled && !auth.ready()) console.println("Relay not armed. Configure app key.");
   localApi.begin();
-  if (!matter_release::begin(output, armed)) {
+  if (!app_network::begin()) {
     output.shutdown();
-    console.println("Matter failed. Release disabled.");
+    console.println("Network startup failed. Release disabled; saved data preserved.");
     return;
   }
+  esp_task_wdt_config_t watchdog = {8000, 0, true};
+  auto wdt = esp_task_wdt_init(&watchdog);
+  if (wdt == ESP_ERR_INVALID_STATE) wdt = esp_task_wdt_reconfigure(&watchdog);
+  if (wdt == ESP_OK) enableLoopWDT();
+  else console.println("Loop watchdog unavailable.");
   ready = true;
-  matter_release::printStatus();
-  console.printf("Output: %s; armed: %s\n",
-      config::relayEnabled ? "relay" : "LED test", armed ? "yes" : "no");
-  console.println("Ready. Type HELP for commands.");
+  console.println("Ready. App control only. USB: STATUS or WIFI RECONNECT.");
 }
 
 void loop() {
-  if (!ready) { delay(100); return; }
-  matter_release::poll();
-  localApi.poll();
-  static bool lastRelease = false;
-  const bool releasing = output.active();
-  if (releasing != lastRelease) {
-    lastRelease = releasing;
-    console.println(releasing ? "Release: active" : "Release: inactive");
-  }
-  static uint32_t lastMatterCheck = 0;
-  static bool lastPaired = false;
-  if (uint32_t(millis() - lastMatterCheck) >= 1000) {
-    lastMatterCheck = millis();
-    const bool paired = matter_release::commissioned();
-    if (paired != lastPaired) {
-      lastPaired = paired;
-      console.println(paired ? "Matter: paired" : "Matter: not paired");
-    }
-  }
-  // Bounded, nonblocking serial input; a partial line cannot stall the loop.
-  static String command;
+  runtime_diagnostics::poll();
+  if (ready) { app_network::poll(); localApi.poll(); }
+  // Fixed-size, bounded USB diagnostics. No command history, pairing or unlock.
+  static char command[33] = {};
+  static unsigned length = 0;
   static bool overflow = false;
-  while (Serial.available()) {
+  for (unsigned read = 0; read < 64 && Serial.available(); ++read) {
     const char c = Serial.read();
     if (c == '\n' || c == '\r') {
-      command.trim();
-      command.toUpperCase();
-      if (overflow) {
-        Serial.println("Command too long. Maximum 128 characters.");
-      } else if (command == "RESET MATTER") {
-        ready = false;
-        matter_release::resetPairing();
-      } else if (!command.isEmpty()) {
-        // Private responses, including Matter codes, are not added to history.
-        Serial.println(terminalCommand(command, output, auth).output);
+      command[length] = '\0';
+      if (!overflow) {
+        if (strcmp(command, "STATUS") == 0) printUsbStatus(output, auth);
+        else if (strcmp(command, "WIFI RECONNECT") == 0)
+          console.println(app_network::reconnect() ? "Wi-Fi reconnect requested." : "Wi-Fi reconnect unavailable.");
+        else if (length) console.println("USB diagnostics: STATUS or WIFI RECONNECT.");
       }
-      command = "";
-      overflow = false;
-    } else if (!overflow && command.length() < 128) {
-      command += c;
-    } else {
-      overflow = true;
-    }
+      length = 0; overflow = false;
+    } else if (!overflow && length < sizeof(command) - 1) {
+      command[length++] = c >= 'a' && c <= 'z' ? c - 'a' + 'A' : c;
+    } else overflow = true;
   }
-  delay(2);
+  delay(ready ? 2 : 100);
 }

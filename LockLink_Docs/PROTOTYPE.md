@@ -1,56 +1,35 @@
 # Firmware and output boundaries
 
-`LockLink_IoT` is the single firmware for the Matter **Door Release** door lock
-and the LockLink app. Wi-Fi is provisioned over BLE during Matter commissioning,
-or seeded from optional private config credentials when no network is saved.
-Both control routes share a one-second release controller. Matter Unlock starts
-a pulse, Lock stops it early, and repeated Unlock does not extend it.
+Version 2.2.0 is ESP32-C3 app-only firmware. Wi-Fi credentials are configured
+privately for first installation; saved network data takes priority on updates.
+No Matter/Bluetooth, home-controller commands, or network Terminal is included.
 
-The local HTTP API remains intentionally small:
+## Local API
 
-- `GET /status` → `{"online":true,"device":"LockLink","state":"locked","mode":"led","armed":true,"matter_accessory":"door_lock","physical_state_known":false}`
-- `POST /unlock` in LED mode → `{"success":true,"state":"unlocking","duration_ms":1000}`
-- Repeated `POST /unlock` during a pulse → HTTP 409.
+- `GET /status`: online, device, firmware version, commanded state, mode, armed,
+  physical_state_known=false, and bounded numeric health diagnostics.
+- `GET /challenge`: one random nonce, valid for ten seconds and one attempt.
+- `POST /unlock`: HMAC-SHA256 of `unlock:<nonce>` with the private app key in
+  `X-LockLink-Nonce` / `X-LockLink-Signature` headers. Success acknowledges a
+  one-second release; an active pulse returns HTTP 409 without extending it.
 
-In relay mode, status reports `"mode":"relay"` and `armed` indicates whether
-the private key is valid. `GET /challenge` returns a random nonce. The app
-signs `unlock:<nonce>` with HMAC-SHA256 using the pairing key, then sends
-`POST /unlock` with `X-LockLink-Nonce` and `X-LockLink-Signature` headers.
-The ESP32 accepts a challenge once, for at most ten seconds. Requests without
-a valid signature return HTTP 401 and cannot actuate the relay.
-Each endpoint holds up to eight outstanding challenges. A full pool returns
-HTTP 503 without replacing live challenges; unlock and terminal challenges use
-separate pools. An unknown nonce does not invalidate another client's challenge.
+Eight outstanding challenges support independent phones. A full pool returns
+HTTP 503 without replacing valid challenges. Invalid authentication returns
+HTTP 401 and cannot operate a real relay. Firmware without a valid app key
+leaves relay mode unarmed. LED-only testing can accept an unsigned pulse but
+never configures the relay pin. Legacy Terminal routes return HTTP 404.
 
-The authenticated `/terminal/challenge` and `POST /terminal` routes support logs,
-setup and connected-home management in both LED and relay modes. They always
-require a configured firmware key. See the [terminal contract](TERMINAL_PLAN.md).
+The relay output is GPIO4 HIGH at idle and LOW for a one-second release; GPIO8
+is the active-LOW indicator. The ESP timer returns the output to idle even if
+HTTP blocks or Wi-Fi fails. HIGH can energize a HIGH-ON module, so output
+inactivity does not imply coil off or a physically locked door.
 
-The output logic lives in `LockLink_IoT/src/release_output.cpp`. The default
-driver uses GPIO4 with HIGH at idle and LOW during release, and GPIO8 for the
-active-LOW blue LED on ESP32-C3 Super Mini. The ESP timer restores GPIO4 HIGH
-and switches the LED off independently of network handling, even if Wi-Fi drops.
-HIGH at idle energizes a HIGH-ON physical module; signal inactivity is not a
-coil-OFF guarantee. There is no RGB
-LED driver. Optional LED mode never configures or writes the relay pin. See
-[relay setup](RELAY_SETUP.md) for the physical wiring and pairing steps.
+The output latches idle before networking and never restores an old release
+after boot. No automatic command replay exists. See [relay setup](RELAY_SETUP.md)
+for the circuit-specific power-failure hazards.
 
-LED mode allows cross-origin browser requests on a trusted local network.
-Relay mode requires a signed, single-use challenge for every unlock and
-restricts browser origins to one explicitly configured local origin. Neither
-mode should be exposed to the public internet.
+This API belongs only on a trusted LAN. Relay browser access requires one
+explicitly configured local origin. Do not expose port 80 publicly; the device
+is not a cloud/remote access service. Native widgets use the same signed API.
 
-The public configuration starts in relay mode with an empty app signing key,
-so its relay is unarmed. Set `LOCKLINK_RELAY_ENABLED 0` for a disconnected-relay
-LED test; set it back to `1` and configure the key before installation.
-Keep local keys and pin overrides in `LockLink_IoT/include/private_config.h`.
-An invalid or missing key leaves relay mode unarmed for both Matter and app
-commands. The app's saved key and the Matter commissioning code are different
-credentials and must not be published.
-
-USB `STATUS` reports Matter pairing, Wi-Fi, the app IPv4 address and whether
-the release is active. `PAIR` displays setup information; `RESET MATTER`
-deliberately clears Matter pairing/network settings. The status field `locked`
-and Matter Locked both mean the output is inactive; neither verifies the latch
-or door position. See [Matter setup](MATTER_SETUP.md) for pairing, recovery
-and physical test requirements.
+See [USB health](USB_DIAGNOSTICS.md) and [offline recovery](OFFLINE_BEHAVIOR.md).

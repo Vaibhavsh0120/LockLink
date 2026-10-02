@@ -20,7 +20,7 @@ class DeviceConnectionHelp extends StatelessWidget {
       ),
       SizedBox(height: 12),
       Text(
-        'New device without Wi-Fi? Open USB serial at 115200 baud and run PAIR for its setup code. Enter that code in your home app to pair over Bluetooth. App Terminal needs Wi-Fi.',
+        'For first-time Wi-Fi setup, configure the network in the ESP32 firmware. USB STATUS at 115200 baud shows its address and health.',
       ),
     ],
   );

@@ -4,6 +4,7 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "local_network.h"
+#include "esp_event.h"
 
 esp_netif_t interface;
 bool exists = false, up = false;
@@ -11,17 +12,26 @@ uint32_t ip = 0;
 int ipResult = ESP_OK;
 int powerSaveResult = ESP_OK, powerSaveCalls = 0;
 int modeResult = ESP_ERR_WIFI_NOT_INIT, initResult = ESP_OK, initCalls = 0;
+esp_event_handler_t wifiHandler = nullptr, ipHandler = nullptr;
+int esp_event_handler_register(esp_event_base_t base, int32_t id, esp_event_handler_t handler, void* context) {
+  assert(context == nullptr);
+  if (base == WIFI_EVENT) { assert(id == WIFI_EVENT_STA_DISCONNECTED); wifiHandler = handler; }
+  else { assert(base == IP_EVENT && id == IP_EVENT_STA_GOT_IP); ipHandler = handler; }
+  return ESP_OK;
+}
 esp_err_t esp_wifi_get_mode(wifi_mode_t* mode) {
   *mode = WIFI_MODE_STA;
   return modeResult;
 }
 esp_err_t esp_wifi_init(const wifi_init_config_t* config) {
   ++initCalls;
+  const auto defaults = WIFI_INIT_CONFIG_DEFAULT();
   assert(config->static_rx_buf_num == 2);
   assert(config->dynamic_rx_buf_num == 4);
   assert(config->tx_buf_type == 1 && config->static_tx_buf_num == 0);
   assert(config->dynamic_tx_buf_num == 4);
-  assert(config->ampdu_rx_enable == 0); // Fewer than six static RX buffers.
+  assert(config->ampdu_rx_enable == 0);
+  assert(config->ampdu_tx_enable == defaults.ampdu_tx_enable);
   assert(config->rx_ba_win <= config->dynamic_rx_buf_num);
   assert(config->rx_ba_win <= 2 * config->static_rx_buf_num);
   assert(config->nvs_enable == 1 && config->magic == 1234);
@@ -52,7 +62,7 @@ int main() {
   modeResult = ESP_ERR_WIFI_NOT_INIT; initResult = -1;
   assert(!local_network::prepareBuffers()); // Startup must detect allocation failure.
   assert(initCalls == 2);
-  assert(!local_network::snapshot().ready()); // Before Matter creates Wi-Fi.
+  assert(!local_network::snapshot().ready()); // Before the station exists.
   assert(powerSaveCalls == 0);
   exists = true; up = true;
   assert(!local_network::snapshot().ready()); // DHCP still pending.
@@ -73,5 +83,19 @@ int main() {
   ipResult = ESP_OK;
   assert(local_network::snapshot().ready()); // Reconnect.
   assert(powerSaveCalls == 3); // Reapply after loss of network readiness.
+  assert(local_network::beginDiagnostics());
+  wifi_event_sta_disconnected_t lost;
+  lost.reason = 200;
+  wifiHandler(nullptr, WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &lost);
+  assert(local_network::diagnostics().disconnects == 1);
+  assert(local_network::diagnostics().lastDisconnectReason == 200);
+  assert(local_network::snapshot().epoch == 1);
+  assert(powerSaveCalls == 4); // Rejoin completed between snapshots.
+  ipHandler(nullptr, IP_EVENT, IP_EVENT_STA_GOT_IP, nullptr);
+  assert(local_network::snapshot().epoch == 2);
+  assert(powerSaveCalls == 5); // New IP invalidates socket/configuration epoch.
+  ipHandler(nullptr, IP_EVENT, 99, nullptr);
+  assert(local_network::snapshot().epoch == 2);
+  assert(powerSaveCalls == 5);
   std::cout << "Local network tests passed\n";
 }

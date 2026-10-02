@@ -55,12 +55,10 @@ def version_updates(root: Path, version: str) -> dict[Path, str]:
     field("README.md", r"Current source version: \*\*v", r"\*\*")
     field("README.md", r"Version \*\*", r"\*\*")
     field("LockLink_App/README.md", r"The v", " Flutter client")
-    for relative in ("ESP32_C3_SETUP.md", "WIDGETS.md", "OFFLINE_BEHAVIOR.md", "TERMINAL_PLAN.md"):
+    for relative in ("ESP32_C3_SETUP.md", "WIDGETS.md", "OFFLINE_BEHAVIOR.md", "USB_DIAGNOSTICS.md"):
         field("LockLink_Docs/" + relative, r"^# [^\r\n]*\(v", r"\)")
     field("LockLink_Docs/ESP32_C3_SETUP.md", r"USB `STATUS` must report v", ",")
-    field("LockLink_Docs/MATTER_SETUP.md", r"The v", r" `LockLink_IoT`")
-    field("LockLink_Docs/APPLE_HOME_QUICKSTART.md", r"The v", " firmware appears")
-    for relative in ("README.md", "LockLink_Docs/WIDGETS.md", "LockLink_Docs/OFFLINE_BEHAVIOR.md", "LockLink_Docs/TERMINAL_PLAN.md"):
+    for relative in ("README.md", "LockLink_Docs/WIDGETS.md", "LockLink_Docs/OFFLINE_BEHAVIOR.md", "LockLink_Docs/USB_DIAGNOSTICS.md"):
         path = root / relative
         changes[path] = replace(changes[path],
             r"\[v" + SEMVER + r" release notes\]\((LockLink_Docs/)?releases/v" + SEMVER + r"\.md\)",

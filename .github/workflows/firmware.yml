@@ -26,9 +26,11 @@ jobs:
         run: python -m pip install platformio==6.2.0
       - name: Test native firmware behavior
         run: python LockLink_IoT/tools/test_native.py
+      - name: Test host diagnostic tool budgets
+        run: python -B -m unittest discover -s LockLink_IoT/tools -p test_tools.py
       - name: Require public configuration for published artifacts
         run: test ! -e LockLink_IoT/include/private_config.h
-      - name: Build ESP32-C3 app and Matter firmware (unarmed public configuration)
+      - name: Build ESP32-C3 app-only firmware (unarmed public configuration)
         run: pio run -d LockLink_IoT -e esp32-c3-supermini
       - name: Verify all firmware images
         run: python LockLink_IoT/tools/verify_firmware.py

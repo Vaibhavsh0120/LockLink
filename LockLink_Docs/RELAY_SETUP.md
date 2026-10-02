@@ -46,14 +46,13 @@ ESP32 GPIO. Confirm that the manual key/button and required emergency exit
 remain usable with the controller disconnected. Check relay contact state with
 a meter and no lock connected before applying 12 V.
 
-## Pair and enable
+## Configure and enable
 
 1. Copy `LockLink_IoT/include/private_config.example.h` to
    `LockLink_IoT/include/private_config.h` only if it does not already exist.
    Preserve existing private settings; this file is gitignored. First test
-   the LED with `LOCKLINK_RELAY_ENABLED 0` and follow the
-   [Apple Home quickstart](APPLE_HOME_QUICKSTART.md) to provide Wi-Fi over BLE
-   or with optional private config credentials.
+   LED with `LOCKLINK_RELAY_ENABLED 0` and configure Wi-Fi in the private file
+   for first installation. A saved network takes priority on routine updates.
 2. The public example has an empty key. If a private key is not already
    configured, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
@@ -87,8 +86,8 @@ It consumes that challenge once and falls back to fetching a fresh one when
 needed. Preparation does not operate the relay or retry an uncertain command.
 Router congestion, weak signal and phone networking can still add latency.
 
-An empty or invalid firmware key leaves the relay unarmed for both Matter and
-app commands, even if relay mode was enabled. An unauthenticated LED command
+An empty or invalid firmware key leaves the relay unarmed for app commands,
+even if relay mode was enabled. An unauthenticated LED command
 cannot actuate the relay.
 An unlock request uses a fresh challenge and cannot be replayed. The native
 app stores the key in secure storage; the web app keeps it only in memory.
@@ -105,12 +104,9 @@ Wi-Fi loss disables new app commands; an already started pulse still returns
 GPIO4 HIGH after one second. This software does not
 measure lock position or prove that the door opened.
 
-The same firmware also accepts authorized Matter door-lock commands: Unlock
-starts the one-second pulse and Lock ends it early. Repeated Unlock and app unlock
-requests during an active pulse must not extend it. Verify app unlock followed by
-Matter Lock, a new release immediately after expiry, Wi-Fi loss during a pulse,
-and reboot with the lock disconnected before testing the installed lock.
-Anyone allowed to operate **Door Release** can release the door, including
-through permitted controllers or automations. Assistant voice unlocking depends
-on ecosystem authentication and lock policies. See [Matter setup](MATTER_SETUP.md)
-for controller permissions and Google's unlock restrictions.
+The firmware accepts only LockLink app/widget commands. Repeated requests during
+an active pulse must not extend it. Verify a new release after expiry, Wi-Fi loss
+during a pulse, and reboot with the lock disconnected before testing the installed
+lock. Anyone with the shared private app key can release the door. Removing the
+app from a phone does not revoke that key; rotate it on the device and remaining
+phones when access must be revoked.
