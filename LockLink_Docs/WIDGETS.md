@@ -1,4 +1,4 @@
-# Gate widgets (v2.2.0)
+# Gate widgets (v2.2.2)
 
 The widget's **Unlock gate** button sends the existing local status/challenge/
 signed-unlock sequence without launching Flutter. It uses the address and pairing
@@ -116,5 +116,5 @@ Earlier compact Android layouts were inflated as RemoteViews in an Android 13
 emulator and inspected in light/dark mode with 130% text scaling. This is prior
 development evidence, not validation of every later app version. Launcher
 placement and physical gate operation remain separate device checks; iOS layout
-needs macOS/device validation. See [v2.2.0 release notes](releases/v2.2.0.md)
+needs macOS/device validation. See [v2.2.2 release notes](releases/v2.2.2.md)
 for current checks.

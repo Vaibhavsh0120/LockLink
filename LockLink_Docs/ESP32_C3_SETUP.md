@@ -1,4 +1,4 @@
-# ESP32-C3 Super Mini installation (v2.2.0)
+# ESP32-C3 Super Mini installation (v2.2.2)
 
 ## Hardware and behavior
 
@@ -7,7 +7,7 @@
 | Board | ESP32-C3 Super Mini, 4 MB flash, no PSRAM |
 | PlatformIO environment | `esp32-c3-supermini` |
 | Relay signal | GPIO4; HIGH at idle, LOW during release (inverted) |
-| Release | One second; repeated commands do not extend it |
+| Release | 0.5 seconds; repeated commands do not extend it |
 | Blue LED | GPIO8; LOW is ON, HIGH is OFF; follows the release timer |
 | USB | Native USB Serial/JTAG, 115200 monitor; no connected computer required to run |
 
@@ -17,7 +17,7 @@ documents its 4 MB flash and active-LOW GPIO8 LED. The base PlatformIO board is
 the Super Mini's actual pins instead of that base board's RGB `LED_BUILTIN`.
 
 Wire GPIO4 to the relay's 3.3 V compatible input, with a common ground.
-The inverted signal is HIGH at idle and LOW during a one-second release.
+The inverted signal is HIGH at idle and LOW during a 0.5-second release.
 For a boot bias matching idle, use **10 kΩ from GPIO4 to 3.3 V**, replacing
 the old pulldown: the pin is high impedance before firmware sets it HIGH.
 Never pull an ESP32 GPIO up to 5 V. Firmware loads the idle latch before
@@ -45,14 +45,14 @@ checks reject the old S3 GPIO2/GPIO48 settings.
 3. From `LockLink_IoT`, run `pio run -e esp32-c3-supermini`, then
    `pio run -e esp32-c3-supermini -t upload` when ready to flash the C3.
    Close other serial monitors; add `--upload-port COMx` if needed.
-4. Run `pio device monitor -b 115200`. USB `STATUS` must report v2.2.0,
+4. Run `pio device monitor -b 115200`. USB `STATUS` must report v2.2.2,
    relay output and `armed: yes` after a configured build. First installation
    requires configured 2.4 GHz Wi-Fi credentials. Keep keys/private firmware private.
 
 For a blue-LED-only first test, disconnect the relay and set
 `LOCKLINK_RELAY_ENABLED 0`. This mode never writes GPIO4. Restore mode `1`,
 rebuild and upload before the relay test. Disconnect the lock load until the
-relay's idle polarity and one-second cutoff have been verified.
+relay's idle polarity and 0.5-second cutoff have been verified.
 
 If USB upload fails, hold BOOT, press/release RESET, then release BOOT to enter
 the ROM downloader. Select its port and upload; press RESET afterward. Both
@@ -92,7 +92,7 @@ Verify GPIO4 is HIGH at idle after cold boot, reset and power restoration,
 and verify the actual lock/contact state. Test signed app
 Unlock, repeated Unlock, Wi-Fi loss during a pulse,
 and a new release immediately after expiry. GPIO4 must return HIGH and the
-blue LED must turn OFF after one second without needing a network response.
+blue LED must turn OFF after 0.5 seconds without needing a network response.
 The HIGH-ON module then re-energizes; this is not a coil-OFF guarantee. Check
 the actual charger/cable and circuit, including isolated widget-style requests
 and occasional concurrent traffic. The requested bench sessions are capped at

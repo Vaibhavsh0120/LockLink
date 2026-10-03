@@ -20,15 +20,15 @@ int main() {
   assert(output.begin());
   assert(relayIs(IDLE) && indicatorLevel == HIGH && indicatorOutputEnabled);
   assert(output.release() == ReleaseOutput::Result::started);
-  assert(relayIs(PULSE) && indicatorLevel == LOW && testTimer.deadline == 1000000);
-  testTimeUs = 500000;
+  assert(relayIs(PULSE) && indicatorLevel == LOW && testTimer.deadline == 500000);
+  testTimeUs = 250000;
   assert(output.release() == ReleaseOutput::Result::busy);
-  assert(testTimer.deadline == 1000000);
+  assert(testTimer.deadline == 500000);
   // Expiry restores idle HIGH without Arduino loop or network processing.
-  testTimeUs = 999000;
+  testTimeUs = 499000;
   testTimer.args.callback(testTimer.args.arg);
   assert(relayIs(PULSE) && indicatorLevel == LOW && output.active());
-  testTimeUs = 1000000;
+  testTimeUs = 500000;
   testTimer.armed = false;
   testTimer.args.callback(testTimer.args.arg);
   assert(relayIs(IDLE) && indicatorLevel == HIGH && !output.active());

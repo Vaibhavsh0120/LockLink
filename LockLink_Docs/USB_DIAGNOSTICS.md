@@ -1,4 +1,4 @@
-# USB health diagnostics (v2.2.0)
+# USB health diagnostics (v2.2.2)
 
 Open a USB serial monitor at 115200 baud and enter `STATUS` followed by Enter.
 It reports the version, IP, association, signal, modem sleep, uptime, current
@@ -30,7 +30,7 @@ These check reported cutoff, not actual pin timing or physical door movement.
 No uncertain release command is retried. A completed zero-failure run is useful
 evidence, not proof of permanent reliability. Interrupted checkpoints and failed
 trials must not be reported as passing soaks. Keep private firmware/keys outside
-published artifacts. See [v2.2.0 release notes](releases/v2.2.0.md).
+published artifacts. See [v2.2.2 release notes](releases/v2.2.2.md).
 
 `--minutes` is a total budget, capped at 15, including burst/probe/idle phases.
 About 80% is available for continuous polling; the rest is reserved for checks.

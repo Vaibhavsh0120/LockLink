@@ -1,6 +1,6 @@
 # Relay setup for a 12 V power-to-unlock lock
 
-The ESP32-C3 Super Mini uses **GPIO4 HIGH at idle and LOW for one second**
+The ESP32-C3 Super Mini uses **GPIO4 HIGH at idle and LOW for 0.5 seconds**
 on an accepted Unlock. GPIO8 drives the active-LOW blue LED, on during the
 pulse and off at idle. This is the inverted GPIO signal; it does not identify
 whether a particular module's coil is energized. The relay is a
@@ -10,7 +10,7 @@ switch: the ESP32 GPIO must never power the 12 V lock directly.
 
 The earlier module test confirmed that GPIO4 HIGH turns the relay ON.
 With the inverted firmware, that module is **energized at idle** and drops
-out for the one-second pulse. A LOW-ON module instead stays off at idle and
+out for the 0.5-second pulse. A LOW-ON module instead stays off at idle and
 energizes during the pulse. Check coil and contact behavior with no lock load.
 
 The old HIGH-pulse/NO-contact wiring is no longer valid for that HIGH-ON module:
@@ -64,7 +64,7 @@ a meter and no lock connected before applying 12 V.
    Enter to check Wi-Fi and the local app address after connection.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
-   Unlock sends a signed command and pulls GPIO4 LOW for one second.
+   Unlock sends a signed command and pulls GPIO4 LOW for 0.5 seconds.
 
 The app defaults to `192.168.0.112` and the pairing value documented in the
 [app guide](../LockLink_App/README.md). Saved addresses and keys take priority.
@@ -79,7 +79,7 @@ change the device's key or IP address.
 The powered controller disables Wi-Fi modem sleep once its network is ready,
 and reapplies this after reconnecting. This reduces network receive delays at
 the cost of higher power consumption. Unlock still uses a fresh challenge and
-signed command; the one-second pulse begins immediately after authentication.
+signed command; the 0.5-second pulse begins immediately after authentication.
 The foreground app prepares one short-lived challenge while the output is
 ready, so a tap with a fresh preparation needs only the signed command request.
 It consumes that challenge once and falls back to fetching a fresh one when
@@ -101,7 +101,7 @@ Replace the old GPIO4 pulldown with a 10 kΩ pullup to **3.3 V**, not 5 V,
 to match the HIGH idle signal during reset. This bias does not certify the
 coil or lock state when power fails; test the actual module/contact circuit.
 Wi-Fi loss disables new app commands; an already started pulse still returns
-GPIO4 HIGH after one second. This software does not
+GPIO4 HIGH after 0.5 seconds. This software does not
 measure lock position or prove that the door opened.
 
 The firmware accepts only LockLink app/widget commands. Repeated requests during
