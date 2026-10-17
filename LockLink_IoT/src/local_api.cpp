@@ -69,7 +69,7 @@ void LocalApi::begin() {
     const auto result = output_.release();
     if (result == ReleaseOutput::Result::busy) json(409, "{\"success\":false,\"error\":\"already_unlocking\"}");
     else if (result != ReleaseOutput::Result::started) json(503, "{\"error\":\"output_unavailable\"}");
-    else json(200, "{\"success\":true,\"state\":\"unlocking\",\"duration_ms\":1000}");
+    else json(200, "{\"success\":true,\"state\":\"unlocking\",\"duration_ms\":1500}");
   });
   for (const char* path : {"/status", "/challenge", "/unlock"}) {
     server_.on(path, HTTP_OPTIONS, [this]() { headers(); server_.send(204); });

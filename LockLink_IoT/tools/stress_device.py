@@ -109,9 +109,9 @@ class Device:
         signature = hmac.new(self.key, f"unlock:{nonce}".encode(), hashlib.sha256).hexdigest()
         reply, duration = self.request("/unlock", "", {"X-LockLink-Nonce": nonce,
                                                        "X-LockLink-Signature": signature})
-        if reply.get("success") is not True or reply.get("duration_ms") != 1000:
+        if reply.get("success") is not True or reply.get("duration_ms") != 1500:
             raise ValueError("Unexpected release acknowledgement")
-        self.wait(1.2)
+        self.wait(1.7)
         if self.status()["state"] != "locked":
             raise ValueError("Output remained active after its cutoff")
         return {"unlock_latency_ms": duration, "cutoff_checked": True}
