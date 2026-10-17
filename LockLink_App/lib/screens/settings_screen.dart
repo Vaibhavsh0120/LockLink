@@ -431,7 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                         const SizedBox(height: 24),
                         Text(
-                          'LockLink · v2.2.3',
+                          'LockLink · v2.2.0',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,

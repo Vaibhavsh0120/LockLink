@@ -3,7 +3,7 @@ description: "Local Wi-Fi door control for LockLink."
 publish_to: 'none'
 
 # Single release version; synchronize copies with .github/scripts/sync_version.py.
-version: 2.2.3+223
+version: 2.2.0+220
 
 environment:
   sdk: ^3.13.3

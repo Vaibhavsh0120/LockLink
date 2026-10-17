@@ -20,15 +20,15 @@ int main() {
   assert(output.begin());
   assert(relayIs(IDLE) && indicatorLevel == HIGH && indicatorOutputEnabled);
   assert(output.release() == ReleaseOutput::Result::started);
-  assert(relayIs(PULSE) && indicatorLevel == LOW && testTimer.deadline == 2000000);
+  assert(relayIs(PULSE) && indicatorLevel == LOW && testTimer.deadline == 1000000);
   testTimeUs = 500000;
   assert(output.release() == ReleaseOutput::Result::busy);
-  assert(testTimer.deadline == 2000000);
+  assert(testTimer.deadline == 1000000);
   // Expiry restores idle HIGH without Arduino loop or network processing.
-  testTimeUs = 1999000;
+  testTimeUs = 999000;
   testTimer.args.callback(testTimer.args.arg);
   assert(relayIs(PULSE) && indicatorLevel == LOW && output.active());
-  testTimeUs = 2000000;
+  testTimeUs = 1000000;
   testTimer.armed = false;
   testTimer.args.callback(testTimer.args.arg);
   assert(relayIs(IDLE) && indicatorLevel == HIGH && !output.active());
@@ -36,7 +36,7 @@ int main() {
   assert(output.release() == ReleaseOutput::Result::started);
   output.stop();
   assert(relayIs(IDLE) && !testTimer.armed && !output.active());
-  testTimeUs = 2250000;
+  testTimeUs = 1250000;
   assert(output.release() == ReleaseOutput::Result::started);
   // A callback already dispatched for an old timer cannot end the new pulse.
   testTimer.args.callback(testTimer.args.arg);
