@@ -4,7 +4,7 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include <sdkconfig.h>
 #if !defined(CONFIG_IDF_TARGET_ESP32C3)
-#error "LockLink v2.2.0 requires the ESP32-C3 Super Mini target"
+#error "LockLink v2.2.3 requires the ESP32-C3 Super Mini target"
 #endif
 #endif
 
@@ -43,7 +43,7 @@
 
 namespace config {
 // Synchronized from LockLink_App/pubspec.yaml; use sync_version.py to change it.
-constexpr char version[] = "2.2.0";
+constexpr char version[] = "2.2.3";
 constexpr char wifiSsid[] = LOCKLINK_WIFI_SSID;
 constexpr char wifiPassword[] = LOCKLINK_WIFI_PASSWORD;
 static_assert(sizeof(wifiSsid) <= 33, "Wi-Fi SSID must be at most 32 bytes");
@@ -57,7 +57,7 @@ static_assert(LOCKLINK_WIFI_TX_POWER == 0 || (LOCKLINK_WIFI_TX_POWER >= 8 && LOC
     "Wi-Fi TX maximum must be 0 (SDK default) or 8..84 in quarter-dBm units");
 constexpr uint8_t indicatorPin = LOCKLINK_INDICATOR_GPIO;
 constexpr uint8_t outputPin = LOCKLINK_RELAY_GPIO;
-// Inverted GPIO4 signal: HIGH at idle, LOW during the one-second release.
+// Inverted GPIO4 signal: HIGH at idle, LOW during the two-second release.
 constexpr bool outputActiveHigh = false;
 constexpr bool indicatorActiveHigh = false;
 // Super Mini exposed pins only; exclude boot straps and the blue LED.
@@ -66,6 +66,6 @@ static_assert(!relayEnabled || (outputPin <= 10 && outputPin != 2 &&
     "Choose a C3 Super Mini relay GPIO (default 4), excluding boot straps/LED");
 static_assert(indicatorPin <= 10 && indicatorPin != 2 && indicatorPin != 9,
     "Choose a C3 Super Mini indicator GPIO (blue LED is 8)");
-constexpr uint32_t pulseMs = 1000;
+constexpr uint32_t pulseMs = 2000;
 constexpr uint32_t pulseUs = pulseMs * 1000;
 }

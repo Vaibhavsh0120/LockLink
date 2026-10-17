@@ -20,7 +20,7 @@
   <a href="#mobile-releases">Build apps</a>
 </p>
 
-Current source version: **v2.2.0**.
+Current source version: **v2.2.3**.
 
 Intermittent Wi-Fi packet loss is still reproduced on the test board. This
 release improves memory and request handling but is not yet validated for
@@ -30,7 +30,7 @@ permanent door installation. See the [current investigation](LockLink_Docs/RELIA
 
 | Feature | How it works |
 | --- | --- |
-| Local control | The app requests a one-second release from the ESP32 on the same network. |
+| Local control | The app requests a two-second release from the ESP32 on the same network. |
 | Connection recovery | Home refreshes on return and retries failed status reads automatically. |
 | Diagnostics | Bounded health data; USB-only checks, no retained network log buffer. |
 | Gate widgets | Native controls for Android and iPhone; iPhone widgets require a signed installation. |
@@ -41,7 +41,7 @@ permanent door installation. See the [current investigation](LockLink_Docs/RELIA
 ```mermaid
 flowchart TD
     app["LockLink app<br/>Phone / browser / widget"] -->|Local HTTP| device["ESP32-C3<br/>App-only firmware"]
-    device --> pulse["One-second release"]
+    device --> pulse["Two-second release"]
     pulse --> relay["GPIO4 · Relay"]
     pulse --> led["GPIO8 · LED test"]
     classDef default fill:#f6f4ef,stroke:#707c72,color:#222823
@@ -127,11 +127,11 @@ and publication rejects draft notes.
 
 ## Mobile releases
 
-Version **2.2.0** removes Matter/Bluetooth and app Terminal to prioritize local
-opening, memory headroom, bounded HTTP handling, and Wi-Fi recovery. Native
-Android/iPhone widgets are retained. This is app-only firmware, not a runtime toggle.
+Version **2.2.3** sets each accepted release to two seconds. Repeated Unlock
+commands during an active release do not extend it. Native Android/iPhone
+widgets use the same release duration. The firmware remains app-only.
 Both the center circular control and the Unlock button request the same release.
-See [v2.2.0 release notes](LockLink_Docs/releases/v2.2.0.md)
+See [v2.2.3 release notes](LockLink_Docs/releases/v2.2.3.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 
@@ -189,7 +189,7 @@ PSRAM. Relay wiring and authentication details are in the
 <summary>GPIO behavior and private app key setup</summary>
 
 LockLink is a local network door controller for ESP32-C3 Super Mini (4 MB flash,
-no PSRAM). GPIO4 is **HIGH at idle and LOW for one second**; GPIO8 drives
+no PSRAM). GPIO4 is **HIGH at idle and LOW for two seconds**; GPIO8 drives
 the onboard active-LOW blue LED. Relay mode is the default, and requires a valid
 private app key before any app command can start a release pulse.
 Signal polarity does not identify physical coil state: a HIGH-ON relay stays

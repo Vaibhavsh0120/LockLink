@@ -11,7 +11,7 @@ No Matter/Bluetooth, home-controller commands, or network Terminal is included.
 - `GET /challenge`: one random nonce, valid for ten seconds and one attempt.
 - `POST /unlock`: HMAC-SHA256 of `unlock:<nonce>` with the private app key in
   `X-LockLink-Nonce` / `X-LockLink-Signature` headers. Success acknowledges a
-  one-second release; an active pulse returns HTTP 409 without extending it.
+  two-second release; an active pulse returns HTTP 409 without extending it.
 
 Eight outstanding challenges support independent phones. A full pool returns
 HTTP 503 without replacing valid challenges. Invalid authentication returns
@@ -19,7 +19,7 @@ HTTP 401 and cannot operate a real relay. Firmware without a valid app key
 leaves relay mode unarmed. LED-only testing can accept an unsigned pulse but
 never configures the relay pin. Legacy Terminal routes return HTTP 404.
 
-The relay output is GPIO4 HIGH at idle and LOW for a one-second release; GPIO8
+The relay output is GPIO4 HIGH at idle and LOW for a two-second release; GPIO8
 is the active-LOW indicator. The ESP timer returns the output to idle even if
 HTTP blocks or Wi-Fi fails. HIGH can energize a HIGH-ON module, so output
 inactivity does not imply coil off or a physically locked door.

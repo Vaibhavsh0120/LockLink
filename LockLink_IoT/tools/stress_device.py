@@ -97,7 +97,7 @@ class Device:
 
     def release_cycle(self):
         # Leave time for all four requests and the independent output cutoff.
-        if self.deadline is not None and self.deadline - time.monotonic() < 18:
+        if self.deadline is not None and self.deadline - time.monotonic() < 19:
             raise RunBudgetExceeded("Not enough time to verify an isolated pulse")
         current = self.status()
         if current["state"] != "locked" or current["armed"] is not True:
@@ -109,9 +109,9 @@ class Device:
         signature = hmac.new(self.key, f"unlock:{nonce}".encode(), hashlib.sha256).hexdigest()
         reply, duration = self.request("/unlock", "", {"X-LockLink-Nonce": nonce,
                                                        "X-LockLink-Signature": signature})
-        if reply.get("success") is not True or reply.get("duration_ms") != 1000:
+        if reply.get("success") is not True or reply.get("duration_ms") != 2000:
             raise ValueError("Unexpected release acknowledgement")
-        self.wait(1.2)
+        self.wait(2.2)
         if self.status()["state"] != "locked":
             raise ValueError("Output remained active after its cutoff")
         return {"unlock_latency_ms": duration, "cutoff_checked": True}
