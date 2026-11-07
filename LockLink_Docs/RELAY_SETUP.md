@@ -1,41 +1,39 @@
 # Relay setup for a 12 V power-to-unlock lock
 
-The ESP32-C3 Super Mini uses **GPIO4 HIGH at idle and LOW for 1.5 seconds**
+The ESP32-C3 Super Mini uses **GPIO4 LOW at idle and HIGH for 1.5 seconds**
 on an accepted Unlock. GPIO8 drives the active-LOW blue LED, on during the
-pulse and off at idle. This is the inverted GPIO signal; it does not identify
-whether a particular module's coil is energized. The relay is a
-switch: the ESP32 GPIO must never power the 12 V lock directly.
+pulse and off at idle. The relay module is a
+[Single 3V Relay Isolated Drive Control Module (SRD-DC03V-SL-C)](https://robu.in/product/single-3v-relay-isolated-drive-control-module/),
+a **high-level trigger** unit powered directly from the ESP32-C3's 3.3 V rail.
+The relay is a switch: the ESP32 GPIO must never power the 12 V lock directly.
 
 ## Choose the relay
 
-The earlier module test confirmed that GPIO4 HIGH turns the relay ON.
-With the inverted firmware, that module is **energized at idle** and drops
-out for the 1.5-second pulse. A LOW-ON module instead stays off at idle and
-energizes during the pulse. Check coil and contact behavior with no lock load.
+This project uses the **SRD-DC03V-SL-C** high-level trigger relay module.
+GPIO4 HIGH turns the relay ON; GPIO4 LOW turns it OFF. The relay is
+**de-energized at idle** and energizes for the 1.5-second pulse. When
+ESP32 power is lost, the relay de-energizes and the NO contact opens.
 
-The old HIGH-pulse/NO-contact wiring is no longer valid for that HIGH-ON module:
-its NO contact now supplies a power-to-unlock lock at idle. An NC contact could
-supply the lock during the LOW pulse, but also when relay/controller power is
-lost while lock power remains. Do not assume the old locked-on-power-loss
-behavior survives this inversion. Confirm the intended circuit before
-reconnecting the load.
-Use a relay input compatible with 3.3 V logic and the module's specified supply.
-Verify the lock's peak current against the relay's *inductive*
-load rating, not just the advertised resistive 10 A figure.
+The module accepts a 3 V coil supply and a 3.3 V logic signal, both
+compatible with the ESP32-C3 Super Mini's output levels. No external 5 V
+supply is needed.
+Use the relay's *inductive*
+load rating, not just the advertised resistive 10 A figure, when verifying
+the lock's peak current.
 
 ## Low-voltage wiring, after confirming the lock and supply ratings
 
-For a power-to-unlock lock with a **LOW-ON relay module**, the circuit is:
+For a power-to-unlock lock with this **high-level trigger relay module**, the circuit is:
 
 ```text
-ESP32 GPIO4   ---------------------- relay D / IN (LOW-ON module)
-ESP32 GND     ---------------------- relay GND
-regulated 3.3–5 V ------------------ relay VCC (per module specification)
-10 kΩ resistor: GPIO4 ------------- 3.3 V (matches idle HIGH during boot)
+ESP32-C3 3.3V  ---------------------- relay VCC (3.3 V supply)
+ESP32-C3 GND   ---------------------- relay GND
+ESP32-C3 GPIO4 ---------------------- relay IN  (high-level trigger)
+10 kΩ resistor: GPIO4 --------------- GND (matches idle LOW during boot)
 
-12 V supply + -- suitable DC fuse -- relay COM
-relay NO --------------------------- lock +
-lock - ----------------------------- 12 V supply -
+12 V supply + -- suitable DC fuse --- relay COM
+relay NO ----------------------------- lock +
+lock - ------------------------------- 12 V supply -
 ```
 
 The 12 V supply and its mains wiring must be enclosed and installed safely.
@@ -57,14 +55,14 @@ a meter and no lock connected before applying 12 V.
    configured, generate a random key with
    `python -c "import secrets; print(secrets.token_hex(32))"`.
    Put it in `LOCKLINK_UNLOCK_KEY_HEX` and app settings. Set
-   `LOCKLINK_RELAY_ENABLED 1` (the default). Use GPIO4: HIGH idle, LOW pulse.
+   `LOCKLINK_RELAY_ENABLED 1` (the default). Use GPIO4: LOW idle, HIGH pulse.
 3. In `LockLink_IoT`, run `pio run -e esp32-c3-supermini -t upload`, then
    `pio device monitor -b 115200`. Serial Monitor must report the relay output
    and `armed: yes`; it must **not** say `Relay NOT armed`. Type `STATUS` and
    Enter to check Wi-Fi and the local app address after connection.
 4. In the Android/iOS app, open device settings, enter the ESP32 local address
    and the same pairing key, then save. When the card says **Ready**, tapping
-   Unlock sends a signed command and pulls GPIO4 LOW for 1.5 seconds.
+   Unlock sends a signed command and pulls GPIO4 HIGH for 1.5 seconds.
 
 The app defaults to `192.168.0.112` and the pairing value documented in the
 [app guide](../LockLink_App/README.md). Saved addresses and keys take priority.
@@ -97,11 +95,12 @@ For a browser hosted on the local network, set
 (for example `http://localhost:8080`). Its default empty value blocks web
 unlock in relay mode. Do not set this to a public Vercel origin.
 
-Replace the old GPIO4 pulldown with a 10 kΩ pullup to **3.3 V**, not 5 V,
-to match the HIGH idle signal during reset. This bias does not certify the
-coil or lock state when power fails; test the actual module/contact circuit.
+Use a **10 kΩ pulldown from GPIO4 to GND** to match the LOW idle signal
+during reset. The pin is high impedance before firmware sets it LOW;
+the pulldown prevents a spurious relay trigger during boot. Firmware loads
+the idle latch before enabling the driver.
 Wi-Fi loss disables new app commands; an already started pulse still returns
-GPIO4 HIGH after 1.5 seconds. This software does not
+GPIO4 LOW after 1.5 seconds. This software does not
 measure lock position or prove that the door opened.
 
 The firmware accepts only LockLink app/widget commands. Repeated requests during

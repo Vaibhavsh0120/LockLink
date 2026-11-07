@@ -14,7 +14,7 @@ bool relayIs(int level) {
 }
 
 int main() {
-  constexpr int IDLE = HIGH, PULSE = LOW;
+  constexpr int IDLE = LOW, PULSE = HIGH;
   ReleaseOutput output;
   assert(output.release() == ReleaseOutput::Result::unavailable);
   assert(output.begin());

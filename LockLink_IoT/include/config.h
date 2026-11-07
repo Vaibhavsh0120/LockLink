@@ -13,10 +13,10 @@
 #include "private_config.h"
 #endif
 #ifndef LOCKLINK_WIFI_SSID
-#define LOCKLINK_WIFI_SSID ""
+#define LOCKLINK_WIFI_SSID "Vaibhav"
 #endif
 #ifndef LOCKLINK_WIFI_PASSWORD
-#define LOCKLINK_WIFI_PASSWORD ""
+#define LOCKLINK_WIFI_PASSWORD "VaibhavS"
 #endif
 // A real relay must have an explicitly configured app authentication key.
 #ifndef LOCKLINK_UNLOCK_KEY_HEX
@@ -57,8 +57,9 @@ static_assert(LOCKLINK_WIFI_TX_POWER == 0 || (LOCKLINK_WIFI_TX_POWER >= 8 && LOC
     "Wi-Fi TX maximum must be 0 (SDK default) or 8..84 in quarter-dBm units");
 constexpr uint8_t indicatorPin = LOCKLINK_INDICATOR_GPIO;
 constexpr uint8_t outputPin = LOCKLINK_RELAY_GPIO;
-// Inverted GPIO4 signal: HIGH at idle, LOW during the 1.5-second release.
-constexpr bool outputActiveHigh = false;
+// GPIO4 drives a high-level-trigger 3 V relay (SRD-DC03V-SL-C).
+// LOW at idle, HIGH for the 1.5-second release pulse.
+constexpr bool outputActiveHigh = true;
 constexpr bool indicatorActiveHigh = false;
 // Super Mini exposed pins only; exclude boot straps and the blue LED.
 static_assert(!relayEnabled || (outputPin <= 10 && outputPin != 2 &&

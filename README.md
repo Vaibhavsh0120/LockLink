@@ -40,9 +40,9 @@ permanent door installation. See the [current investigation](LockLink_Docs/RELIA
 
 ```mermaid
 flowchart TD
-    app["LockLink app<br/>Phone / browser / widget"] -->|Local HTTP| device["ESP32-C3<br/>App-only firmware"]
+    app["LockLink app<br/>Phone / browser / widget"] -->|Local HTTP| device["ESP32-C3 Super Mini<br/>App-only firmware"]
     device --> pulse["1.5-second release"]
-    pulse --> relay["GPIO4 · Relay"]
+    pulse --> relay["GPIO4 · 3V Relay<br/>High-level trigger"]
     pulse --> led["GPIO8 · LED test"]
     classDef default fill:#f6f4ef,stroke:#707c72,color:#222823
     classDef controller fill:#222823,stroke:#222823,color:#f6f4ef
@@ -54,9 +54,10 @@ sensor, so it cannot confirm that the physical door opened.
 
 ## Getting started
 
-1. Use the **ESP32-C3 Super Mini** and follow the
+1. Use the **[ESP32-C3 Super Mini](https://robu.in/product/esp32-c3-development-board-esp32-supermini/)** and follow the
    [installation guide](LockLink_Docs/ESP32_C3_SETUP.md). Start with the relay
-   disconnected and LED test mode.
+   disconnected and LED test mode. The relay module is a
+   [Single 3V Relay (SRD-DC03V-SL-C)](https://robu.in/product/single-3v-relay-isolated-drive-control-module/).
 2. Configure Wi-Fi in the private firmware configuration. Run
    USB `STATUS` to find the device address.
 3. Run the Flutter app, save that address in Settings, and use a matching private
@@ -181,19 +182,24 @@ cannot expose the widget to iOS.
 
 ## Hardware and diagnostics
 
-The current firmware targets the ESP32-C3 Super Mini with 4 MB flash and no
-PSRAM. Relay wiring and authentication details are in the
+The current firmware targets the [ESP32-C3 Super Mini](https://robu.in/product/esp32-c3-development-board-esp32-supermini/)
+with 4 MB flash and no PSRAM. The relay is a
+[Single 3V Relay (SRD-DC03V-SL-C)](https://robu.in/product/single-3v-relay-isolated-drive-control-module/),
+a high-level trigger module powered from the ESP32-C3's 3.3 V rail.
+Relay wiring and authentication details are in the
 [relay guide](LockLink_Docs/RELAY_SETUP.md).
 
 <details>
 <summary>GPIO behavior and private app key setup</summary>
 
-LockLink is a local network door controller for ESP32-C3 Super Mini (4 MB flash,
-no PSRAM). GPIO4 is **HIGH at idle and LOW for 1.5 seconds**; GPIO8 drives
-the onboard active-LOW blue LED. Relay mode is the default, and requires a valid
+LockLink is a local network door controller for [ESP32-C3 Super Mini](https://robu.in/product/esp32-c3-development-board-esp32-supermini/) (4 MB flash,
+no PSRAM). GPIO4 is **LOW at idle and HIGH for 1.5 seconds**; GPIO8 drives
+the onboard active-LOW blue LED. The relay module is a
+[Single 3V Relay (SRD-DC03V-SL-C)](https://robu.in/product/single-3v-relay-isolated-drive-control-module/),
+a high-level trigger unit powered from 3.3 V. Relay mode is the default, and requires a valid
 private app key before any app command can start a release pulse.
-Signal polarity does not identify physical coil state: a HIGH-ON relay stays
-energized at idle with this inverted configuration. Check the wiring guide.
+The relay is de-energized at idle and energizes during the pulse.
+When ESP32 power is lost, the relay de-energizes (fail-secure with NO contact).
 
 Read [relay setup](LockLink_Docs/RELAY_SETUP.md) before connecting the lock.
 Relay mode is enabled by default and requires a matching private app key.

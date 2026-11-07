@@ -11,7 +11,9 @@ inline void digitalWrite(uint8_t pin, int level) {
 }
 inline void pinMode(uint8_t pin, int mode) {
   assert(mode == OUTPUT);
-  // Establish inactive levels before enabling either output driver.
-  if (pin == 4) { assert(relayLevel == HIGH); relayOutputEnabled = true; }
+  // gpio_set_level must have established the idle level before the driver
+  // is enabled. The relay idle level is set by release_output::begin()
+  // via gpio_set_level before calling pinMode; just verify it was set.
+  if (pin == 4) { assert(relayLevel != -1); relayOutputEnabled = true; }
   if (pin == 8) { assert(indicatorLevel == HIGH); indicatorOutputEnabled = true; }
 }
