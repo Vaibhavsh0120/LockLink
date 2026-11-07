@@ -1,4 +1,4 @@
-# ESP32-C3 Super Mini installation (v2.2.4)
+# ESP32-C3 Super Mini installation (v2.2.5)
 
 ## Hardware and behavior
 
@@ -47,7 +47,7 @@ checks reject the old S3 GPIO2/GPIO48 settings.
 3. From `LockLink_IoT`, run `pio run -e esp32-c3-supermini`, then
    `pio run -e esp32-c3-supermini -t upload` when ready to flash the C3.
    Close other serial monitors; add `--upload-port COMx` if needed.
-4. Run `pio device monitor -b 115200`. USB `STATUS` must report v2.2.4,
+4. Run `pio device monitor -b 115200`. USB `STATUS` must report v2.2.5,
    relay output and `armed: yes` after a configured build. First installation
    requires configured 2.4 GHz Wi-Fi credentials. Keep keys/private firmware private.
 

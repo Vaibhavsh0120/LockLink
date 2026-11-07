@@ -20,7 +20,7 @@
   <a href="#mobile-releases">Build apps</a>
 </p>
 
-Current source version: **v2.2.4**.
+Current source version: **v2.2.5**.
 
 Intermittent Wi-Fi packet loss is still reproduced on the test board. This
 release improves memory and request handling but is not yet validated for
@@ -128,11 +128,11 @@ and publication rejects draft notes.
 
 ## Mobile releases
 
-Version **2.2.4** sets each accepted release to 1.5 seconds. Repeated Unlock
+Version **2.2.5** sets each accepted release to 1.5 seconds. Repeated Unlock
 commands during an active release do not extend it. Native Android/iPhone
 widgets use the same release duration. The firmware remains app-only.
 Both the center circular control and the Unlock button request the same release.
-See [v2.2.4 release notes](LockLink_Docs/releases/v2.2.4.md)
+See [v2.2.5 release notes](LockLink_Docs/releases/v2.2.5.md)
 for this version's changes and validation boundaries. Older
 [v1.5.0 notes](LockLink_Docs/releases/v1.5.0.md) remain historical.
 

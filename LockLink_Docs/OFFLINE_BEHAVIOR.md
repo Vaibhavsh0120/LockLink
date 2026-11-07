@@ -1,4 +1,4 @@
-# Device offline and recovery (v2.2.4)
+# Device offline and recovery (v2.2.5)
 
 Offline means the app could not obtain a valid reply. It cannot distinguish
 power loss, blocked traffic, a changed address, a stalled socket, or a radio
@@ -62,7 +62,7 @@ the power LED alone.
 
 ## Verification
 
-See [v2.2.4 release notes](releases/v2.2.4.md) for completed checks and limitations.
+See [v2.2.5 release notes](releases/v2.2.5.md) for completed checks and limitations.
 The [2026-10-01 diagnosis](CONNECTION_DIAGNOSIS_2026-10-01.md) remains historical
 evidence for the older memory-pressure failure, not a description of this build.
 The installed charger, cable, physical relay/lock, metal-pipe placement, actual
